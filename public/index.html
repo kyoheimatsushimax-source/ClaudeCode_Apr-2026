@@ -15,9 +15,11 @@
   <nav>
     <button class="nav-btn active" data-tab="stamp">打刻</button>
     <button class="nav-btn" data-tab="today">本日の勤怠</button>
+    <button class="nav-btn" data-tab="monitoring">勤務監視</button>
     <button class="nav-btn" data-tab="history">勤怠履歴</button>
     <button class="nav-btn" data-tab="monthly">月次集計</button>
     <button class="nav-btn" data-tab="employees">従業員管理</button>
+    <button class="nav-btn" data-tab="settings">設定</button>
   </nav>
 
   <main>
@@ -57,6 +59,103 @@
             <tbody id="today-tbody"></tbody>
           </table>
         </div>
+      </div>
+    </section>
+
+    <!-- 勤務監視タブ -->
+    <section id="tab-monitoring" class="tab-content">
+      <h2>勤務監視</h2>
+      <div class="card">
+        <div class="filter-row">
+          <div class="filter-item">
+            <label for="mon-employee">従業員</label>
+            <select id="mon-employee">
+              <option value="">-- 従業員を選択 --</option>
+            </select>
+          </div>
+          <div class="filter-item" style="max-width:80px">
+            <label for="mon-year">年</label>
+            <input type="number" id="mon-year" min="2020" max="2099">
+          </div>
+          <div class="filter-item" style="max-width:60px">
+            <label for="mon-month">月</label>
+            <input type="number" id="mon-month" min="1" max="12">
+          </div>
+          <button class="btn btn-search" onclick="loadMonitoring()">表示</button>
+        </div>
+
+        <div id="mon-content" style="display:none">
+
+          <!-- アラートバナー -->
+          <div id="mon-alert" class="mon-alert" style="display:none"></div>
+
+          <!-- サマリーカード 3列 -->
+          <div class="mon-cards">
+            <!-- 法定労働時間 -->
+            <div class="mon-card">
+              <div class="mon-card-title">法定労働時間</div>
+              <div class="mon-card-sub" id="mon-statutory-sub"></div>
+              <div class="progress-bar-wrap">
+                <div class="progress-bar" id="mon-statutory-bar"></div>
+              </div>
+              <div class="mon-card-detail" id="mon-statutory-detail"></div>
+            </div>
+
+            <!-- 法定外労働時間 -->
+            <div class="mon-card">
+              <div class="mon-card-title">法定外労働時間</div>
+              <div class="mon-card-sub" id="mon-overtime-sub"></div>
+              <div class="progress-bar-wrap">
+                <div class="progress-bar" id="mon-overtime-bar"></div>
+              </div>
+              <div class="mon-card-detail" id="mon-overtime-detail"></div>
+            </div>
+
+            <!-- 残勤務日数 -->
+            <div class="mon-card">
+              <div class="mon-card-title">残勤務日数</div>
+              <div class="mon-card-value" id="mon-remaining-days"></div>
+              <div class="mon-card-detail" id="mon-remaining-detail"></div>
+            </div>
+          </div>
+
+          <!-- 帰宅時間ガイド -->
+          <div class="mon-guide">
+            <div class="mon-guide-title">
+              帰宅時間の目安
+              <span class="mon-guide-base" id="mon-base-clockin"></span>
+            </div>
+            <div class="mon-guide-rows">
+              <div class="mon-guide-row">
+                <div class="mon-guide-label">
+                  <span class="guide-dot dot-blue"></span>
+                  目標帰宅時間
+                  <span class="guide-hint">所定労働時間を消化するために必要な帰宅時刻</span>
+                </div>
+                <div class="mon-guide-time" id="mon-target-dep"></div>
+                <div class="mon-guide-hours" id="mon-required-daily"></div>
+              </div>
+              <div class="mon-guide-row">
+                <div class="mon-guide-label">
+                  <span class="guide-dot dot-red"></span>
+                  上限帰宅時間
+                  <span class="guide-hint">法定外上限（残 <span id="mon-ot-remaining-inline"></span>h）内での最大帰宅時刻</span>
+                </div>
+                <div class="mon-guide-time" id="mon-limit-dep"></div>
+                <div class="mon-guide-hours" id="mon-max-daily"></div>
+              </div>
+            </div>
+            <div class="mon-guide-note" id="mon-guide-note"></div>
+          </div>
+
+          <!-- 法令参考 -->
+          <div class="mon-law-note">
+            <strong>参考：労働基準法上の時間外労働の上限（36協定）</strong><br>
+            原則：月 45時間・年 360時間　／　特別条項：月 100時間未満・複数月平均 80時間・年 720時間
+          </div>
+
+        </div>
+        <div id="mon-empty" class="mon-empty">従業員と対象月を選択して「表示」を押してください</div>
       </div>
     </section>
 
@@ -169,6 +268,52 @@
             <tbody id="emp-tbody"></tbody>
           </table>
         </div>
+      </div>
+    </section>
+
+    <!-- 設定タブ -->
+    <section id="tab-settings" class="tab-content">
+      <h2>設定</h2>
+      <div class="card" style="max-width:520px">
+        <p class="settings-desc">勤務監視で使用する基準値を設定します。</p>
+
+        <div class="settings-group">
+          <label for="set-daily-hours">所定労働時間（時間 / 日）</label>
+          <div class="settings-row">
+            <input type="number" id="set-daily-hours" min="1" max="24" step="0.5" style="width:100px">
+            <span class="settings-unit">時間</span>
+          </div>
+          <p class="settings-hint">月の法定労働時間 = この値 × 月の稼働日数（月〜金）</p>
+        </div>
+
+        <div class="settings-group">
+          <label for="set-ot-limit">法定外労働時間の上限（時間 / 月）</label>
+          <div class="settings-row">
+            <input type="number" id="set-ot-limit" min="1" max="200" step="1" style="width:100px">
+            <span class="settings-unit">時間</span>
+          </div>
+          <p class="settings-hint">36協定 一般条項の原則は 45時間、特別条項は最大 100時間未満</p>
+        </div>
+
+        <div class="settings-group">
+          <label for="set-break">休憩時間（分）</label>
+          <div class="settings-row">
+            <input type="number" id="set-break" min="0" max="240" step="5" style="width:100px">
+            <span class="settings-unit">分</span>
+          </div>
+          <p class="settings-hint">帰宅時間の計算時に差し引かれます</p>
+        </div>
+
+        <div class="settings-group">
+          <label for="set-start-time">標準出勤時刻</label>
+          <div class="settings-row">
+            <input type="time" id="set-start-time" style="width:120px">
+          </div>
+          <p class="settings-hint">当月の実績がない場合にこの時刻を基準として帰宅時間を計算します</p>
+        </div>
+
+        <button class="btn btn-save" onclick="saveSettings()">保存</button>
+        <div id="settings-message" class="message"></div>
       </div>
     </section>
   </main>
