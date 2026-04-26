@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ランダムポケモン</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>ランダムポケモン</h1>
+        <button id="randomBtn">ポケモンを表示</button>
+
+        <div id="pokemonContainer" class="pokemon-container">
+            <div id="loading" class="loading" style="display: none;">読み込み中...</div>
+            <div id="pokemon" class="pokemon" style="display: none;">
+                <img id="pokemonImage" src="" alt="ポケモン">
+                <h2 id="pokemonName"></h2>
+                <div class="pokemon-info">
+                    <p><strong>ID:</strong> <span id="pokemonId"></span></p>
+                    <p><strong>高さ:</strong> <span id="pokemonHeight"></span></p>
+                    <p><strong>重さ:</strong> <span id="pokemonWeight"></span></p>
+                </div>
+                <div class="pokemon-types" id="pokemonTypes"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
