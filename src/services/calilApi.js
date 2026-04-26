@@ -1,32 +1,24 @@
 const APP_KEY = '100f06489a98c91ac4a4d1dae537769c'
 const CALIL_API_BASE = 'https://api.calil.jp'
 
-const jsonp = (url, params) => {
-  return new Promise((resolve, reject) => {
-    const callbackName = `calil_cb_${Date.now()}`
-    const query = new URLSearchParams({ ...params, callback: callbackName }).toString()
-    const script = document.createElement('script')
+const fetchJSON = async (url, params) => {
+  const queryParams = new URLSearchParams({
+    ...params,
+    callback: 'no',
+  }).toString()
 
-    window[callbackName] = (data) => {
-      delete window[callbackName]
-      document.body.removeChild(script)
-      console.log('JSONP raw response:', data)
-      resolve(data)
-    }
+  const response = await fetch(`${CALIL_API_BASE}${url}?${queryParams}`)
+  if (!response.ok) {
+    throw new Error(`API Error: ${response.statusText}`)
+  }
 
-    script.onerror = () => {
-      delete window[callbackName]
-      document.body.removeChild(script)
-      reject(new Error('JSONP request failed'))
-    }
-
-    script.src = `${CALIL_API_BASE}${url}?${query}`
-    document.body.appendChild(script)
-  })
+  const data = await response.json()
+  console.log('API raw response:', data)
+  return data
 }
 
 export const searchBooks = (query, count = 20) => {
-  return jsonp('/search', {
+  return fetchJSON('/search', {
     appkey: APP_KEY,
     title: query,
     count,
@@ -34,14 +26,14 @@ export const searchBooks = (query, count = 20) => {
 }
 
 export const getLibraries = (prefCode) => {
-  return jsonp('/library', {
+  return fetchJSON('/library', {
     appkey: APP_KEY,
     pref: prefCode,
   })
 }
 
 export const checkAvailability = (isbn, systemid) => {
-  return jsonp('/check', {
+  return fetchJSON('/check', {
     appkey: APP_KEY,
     isbn,
     systemid,
