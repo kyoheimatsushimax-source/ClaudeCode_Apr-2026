@@ -1,6 +1,6 @@
 import axios from 'axios'
 
-const CALIL_API_BASE = 'https://api.calil.jp/api'
+const CALIL_API_BASE = import.meta.env.DEV ? '/api' : 'https://api.calil.jp/api'
 const APP_KEY = '100f06489a98c91ac4a4d1dae537769c'
 
 const calilApi = axios.create({
