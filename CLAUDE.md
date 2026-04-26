@@ -1,20 +1,50 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+図書館検索アプリ - Library Search Application
 
-## Repository Status
+## 技術スタック
 
-This is a new, empty repository. No source code, build system, or test framework has been established yet. This file will be updated as the project takes shape.
+- **フロントエンド**: React 18 + Vite
+- **API**: Calil API（日本の図書館検索API）
+- **HTTP クライアント**: Axios
+- **スタイル**: CSS3
 
-## Getting Started
+## 開発コマンド
 
-When a technology stack and project structure are chosen, document the following here:
+- **開発サーバー起動**: `npm run dev` (http://localhost:5173)
+- **本番ビルド**: `npm run build`
+- **ビルドプレビュー**: `npm run preview`
 
-- **Build commands** — how to compile or bundle the project
-- **Lint/format commands** — the linter and formatter in use, and how to run them
-- **Test commands** — how to run the full test suite and how to run a single test file or test case
-- **Dev server** — how to start a local development environment
+## プロジェクト構成
 
-## Conventions
+```
+src/
+├── components/         # Reactコンポーネント
+│   ├── SearchForm.jsx
+│   ├── SearchResults.jsx
+│   └── BookCard.jsx
+├── services/           # API サービス
+│   └── calilApi.js
+├── styles/            # CSS スタイル
+│   ├── SearchForm.css
+│   ├── SearchResults.css
+│   └── BookCard.css
+├── App.jsx
+├── main.jsx
+└── index.css
+```
 
-Add project-specific conventions here as they are established (naming patterns, branching strategy, commit style, etc.).
+## 主な機能
+
+- **書籍検索**: Calil APIでタイトル・著者から検索
+- **地域選択**: 都道府県を選択して図書館を指定
+- **検索結果**: サムネイル、著者、出版社、ISBN等を表示
+
+## Calil API 情報
+
+- **API キー**: `100f06489a98c91ac4a4d1dae537769c`
+- **ドキュメント**: https://calil.jp/doc/api.html
+- **エンドポイント**:
+  - `/search` - 書籍検索
+  - `/library` - 図書館情報取得
+  - `/check` - 蔵書確認

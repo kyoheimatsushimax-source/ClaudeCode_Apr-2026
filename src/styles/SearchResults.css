@@ -1,0 +1,58 @@
+.search-results {
+  background: white;
+  border-radius: 16px;
+  padding: 40px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+}
+
+.search-results h2 {
+  font-size: 1.8rem;
+  color: #333;
+  margin-bottom: 30px;
+}
+
+.books-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 24px;
+}
+
+.loading {
+  background: white;
+  border-radius: 16px;
+  padding: 60px 40px;
+  text-align: center;
+  font-size: 1.2rem;
+  color: #667eea;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+}
+
+.error {
+  background: #fff3cd;
+  border-radius: 16px;
+  padding: 20px 24px;
+  border-left: 4px solid #ff6b6b;
+  color: #ff6b6b;
+  font-weight: 500;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+}
+
+.no-results {
+  background: white;
+  border-radius: 16px;
+  padding: 60px 40px;
+  text-align: center;
+  font-size: 1.1rem;
+  color: #999;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+}
+
+@media (max-width: 768px) {
+  .search-results {
+    padding: 24px;
+  }
+
+  .books-grid {
+    grid-template-columns: 1fr;
+  }
+}
