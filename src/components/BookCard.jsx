@@ -3,8 +3,8 @@ import '../styles/BookCard.css'
 export default function BookCard({ book }) {
   return (
     <div className="book-card">
-      {book.thumbnail && (
-        <img src={book.thumbnail} alt={book.title} className="book-cover" />
+      {book.cover && (
+        <img src={book.cover} alt={book.title} className="book-cover" />
       )}
 
       <div className="book-info">
