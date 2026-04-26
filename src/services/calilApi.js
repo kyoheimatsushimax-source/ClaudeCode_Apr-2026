@@ -10,6 +10,7 @@ const jsonp = (url, params) => {
     window[callbackName] = (data) => {
       delete window[callbackName]
       document.body.removeChild(script)
+      console.log('JSONP raw response:', data)
       resolve(data)
     }
 

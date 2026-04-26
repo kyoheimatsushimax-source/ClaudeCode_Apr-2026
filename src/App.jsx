@@ -17,6 +17,7 @@ function App() {
 
     try {
       const results = await searchBooks(query)
+      console.log('API response:', JSON.stringify(results, null, 2))
 
       if (results.books && Array.isArray(results.books)) {
         setBooks(results.books)
