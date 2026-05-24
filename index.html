@@ -142,6 +142,48 @@
     font-size: 14px;
   }
   .chart-container { position: relative; height: 280px; }
+  .chart-container.wide { height: 320px; }
+  .budget-list { display: grid; gap: 14px; }
+  .budget-row { }
+  .budget-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 6px;
+    font-size: 14px;
+  }
+  .budget-cat { font-weight: 600; }
+  .budget-nums { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+  .budget-nums .pct { margin-left: 8px; font-weight: 600; }
+  .bar-bg {
+    height: 10px;
+    background: var(--bg);
+    border-radius: 5px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+  }
+  .bar-fill {
+    height: 100%;
+    border-radius: 5px;
+    background: var(--income);
+    transition: width 0.3s ease;
+  }
+  .bar-fill.warn { background: #f59e0b; }
+  .bar-fill.over { background: var(--expense); }
+  .budget-edit {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+    flex-wrap: wrap;
+    align-items: end;
+  }
+  .budget-edit select, .budget-edit input { width: auto; flex: 1; min-width: 100px; }
+  .budget-edit button { width: auto; }
+  .budget-empty {
+    color: var(--muted);
+    font-size: 13px;
+    padding: 8px 0;
+  }
   .tools {
     display: flex;
     gap: 8px;
@@ -237,6 +279,29 @@
   </section>
 
   <section class="card">
+    <h2>予算 達成状況</h2>
+    <div class="budget-list" id="budget-list"></div>
+    <div class="budget-edit">
+      <div style="flex:1; min-width:140px;">
+        <label for="budget-category">カテゴリ</label>
+        <select id="budget-category"></select>
+      </div>
+      <div style="flex:1; min-width:120px;">
+        <label for="budget-amount">月予算 (円)</label>
+        <input type="number" id="budget-amount" min="0" step="100" placeholder="0" />
+      </div>
+      <button type="button" class="primary" id="budget-save" style="width:auto;">保存</button>
+    </div>
+  </section>
+
+  <section class="card form-card">
+    <h2>年間推移 (収入・支出・収支)</h2>
+    <div class="chart-container wide">
+      <canvas id="yearly-chart"></canvas>
+    </div>
+  </section>
+
+  <section class="card form-card">
     <h2>明細 <span class="badge" id="entry-count">0件</span></h2>
     <div id="entries-wrap">
       <table id="entries-table">
@@ -258,6 +323,7 @@
 
 <script>
   const STORAGE_KEY = 'kakeibo.entries.v1';
+  const BUDGET_KEY = 'kakeibo.budgets.v1';
   const CATEGORIES = {
     expense: ['食費', '日用品', '住居', '光熱費', '通信', '交通', '医療', '娯楽', '衣服', '教育', 'その他'],
     income: ['給与', '副業', 'ボーナス', '臨時収入', 'その他'],
@@ -265,16 +331,23 @@
   const COLORS = ['#2563eb', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899', '#84cc16', '#f97316', '#6366f1', '#64748b'];
 
   let entries = load();
+  let budgets = loadBudgets();
   let viewMonth = new Date();
   viewMonth.setDate(1);
   let currentType = 'expense';
   let chart = null;
+  let yearlyChart = null;
 
   function load() {
     try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }
     catch { return []; }
   }
   function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(entries)); }
+  function loadBudgets() {
+    try { return JSON.parse(localStorage.getItem(BUDGET_KEY)) || {}; }
+    catch { return {}; }
+  }
+  function saveBudgets() { localStorage.setItem(BUDGET_KEY, JSON.stringify(budgets)); }
   function fmt(n) { return '¥' + Math.round(n).toLocaleString('ja-JP'); }
   function ym(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); }
   function monthLabel(d) { return d.getFullYear() + '年 ' + (d.getMonth() + 1) + '月'; }
@@ -333,6 +406,84 @@
     }
 
     renderChart(monthEntries.filter(e => e.type === 'expense'));
+    renderBudgets(monthEntries.filter(e => e.type === 'expense'));
+    renderYearly();
+  }
+
+  function renderBudgets(monthExpenses) {
+    const spent = {};
+    monthExpenses.forEach(e => { spent[e.category] = (spent[e.category] || 0) + e.amount; });
+    const list = document.getElementById('budget-list');
+    const cats = Object.keys(budgets).filter(c => budgets[c] > 0);
+    if (cats.length === 0) {
+      list.innerHTML = '<div class="budget-empty">まだ予算が設定されていません。下のフォームから追加できます。</div>';
+      return;
+    }
+    cats.sort((a, b) => CATEGORIES.expense.indexOf(a) - CATEGORIES.expense.indexOf(b));
+    list.innerHTML = cats.map(cat => {
+      const budget = budgets[cat];
+      const used = spent[cat] || 0;
+      const pct = budget > 0 ? (used / budget) * 100 : 0;
+      const cls = pct >= 100 ? 'over' : pct >= 80 ? 'warn' : '';
+      const width = Math.min(pct, 100);
+      return `
+        <div class="budget-row">
+          <div class="budget-head">
+            <span class="budget-cat">${cat} <button class="delete-btn" data-budget="${cat}" title="予算を削除" style="padding:0 4px;font-size:14px;">×</button></span>
+            <span class="budget-nums">${fmt(used)} / ${fmt(budget)}<span class="pct">${pct.toFixed(0)}%</span></span>
+          </div>
+          <div class="bar-bg"><div class="bar-fill ${cls}" style="width:${width}%"></div></div>
+        </div>`;
+    }).join('');
+  }
+
+  function renderYearly() {
+    const base = new Date(viewMonth);
+    const labels = [];
+    const incomes = [];
+    const expenses = [];
+    const balances = [];
+    for (let i = 11; i >= 0; i--) {
+      const d = new Date(base.getFullYear(), base.getMonth() - i, 1);
+      const key = ym(d);
+      labels.push((d.getMonth() + 1) + '月');
+      const monthEntries = entries.filter(e => e.date.startsWith(key));
+      const inc = monthEntries.filter(e => e.type === 'income').reduce((s, e) => s + e.amount, 0);
+      const exp = monthEntries.filter(e => e.type === 'expense').reduce((s, e) => s + e.amount, 0);
+      incomes.push(inc);
+      expenses.push(exp);
+      balances.push(inc - exp);
+    }
+    const ctx = document.getElementById('yearly-chart').getContext('2d');
+    if (yearlyChart) yearlyChart.destroy();
+    yearlyChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [
+          { label: '収入', data: incomes, borderColor: '#10b981', backgroundColor: 'rgba(16,185,129,0.1)', tension: 0.3, fill: false },
+          { label: '支出', data: expenses, borderColor: '#ef4444', backgroundColor: 'rgba(239,68,68,0.1)', tension: 0.3, fill: false },
+          { label: '収支', data: balances, borderColor: '#2563eb', backgroundColor: 'rgba(37,99,235,0.1)', tension: 0.3, fill: true, borderWidth: 2 },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { position: 'bottom' },
+          tooltip: { callbacks: { label: (c) => `${c.dataset.label}: ${fmt(c.parsed.y)}` } },
+        },
+        scales: {
+          y: { ticks: { callback: (v) => '¥' + v.toLocaleString('ja-JP') } },
+        },
+      },
+    });
+  }
+
+  function refreshBudgetCategorySelect() {
+    const sel = document.getElementById('budget-category');
+    sel.innerHTML = CATEGORIES.expense.map(c => `<option value="${c}">${c}</option>`).join('');
   }
 
   function escapeHtml(s) {
@@ -417,7 +568,8 @@
   });
 
   document.getElementById('export-btn').addEventListener('click', () => {
-    const blob = new Blob([JSON.stringify(entries, null, 2)], { type: 'application/json' });
+    const payload = { entries, budgets };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -435,13 +587,18 @@
     reader.onload = (ev) => {
       try {
         const data = JSON.parse(ev.target.result);
-        if (!Array.isArray(data)) throw new Error('形式が正しくありません');
-        if (confirm(`${data.length}件のデータを読み込みます。既存データに追加しますか? (キャンセルで上書き)`)) {
-          entries = entries.concat(data);
+        const importedEntries = Array.isArray(data) ? data : data.entries;
+        const importedBudgets = Array.isArray(data) ? null : data.budgets;
+        if (!Array.isArray(importedEntries)) throw new Error('形式が正しくありません');
+        if (confirm(`${importedEntries.length}件のデータを読み込みます。既存データに追加しますか? (キャンセルで上書き)`)) {
+          entries = entries.concat(importedEntries);
+          if (importedBudgets) budgets = Object.assign({}, budgets, importedBudgets);
         } else {
-          entries = data;
+          entries = importedEntries;
+          if (importedBudgets) budgets = importedBudgets;
         }
         save();
+        saveBudgets();
         render();
       } catch (err) {
         alert('読み込みに失敗しました: ' + err.message);
@@ -451,8 +608,41 @@
     e.target.value = '';
   });
 
+  document.getElementById('budget-save').addEventListener('click', () => {
+    const cat = document.getElementById('budget-category').value;
+    const amountStr = document.getElementById('budget-amount').value;
+    const amount = parseInt(amountStr, 10);
+    if (!cat || isNaN(amount) || amount < 0) {
+      alert('カテゴリと金額を入力してください');
+      return;
+    }
+    if (amount === 0) delete budgets[cat];
+    else budgets[cat] = amount;
+    saveBudgets();
+    document.getElementById('budget-amount').value = '';
+    render();
+  });
+
+  document.getElementById('budget-category').addEventListener('change', (e) => {
+    const cat = e.target.value;
+    document.getElementById('budget-amount').value = budgets[cat] || '';
+  });
+
+  document.getElementById('budget-list').addEventListener('click', (e) => {
+    if (e.target.dataset.budget) {
+      const cat = e.target.dataset.budget;
+      if (confirm(`${cat} の予算を削除しますか?`)) {
+        delete budgets[cat];
+        saveBudgets();
+        render();
+      }
+    }
+  });
+
   document.getElementById('date').value = new Date().toISOString().slice(0, 10);
   setType('expense');
+  refreshBudgetCategorySelect();
+  document.getElementById('budget-amount').value = budgets[document.getElementById('budget-category').value] || '';
   render();
 </script>
 </body>
