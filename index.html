@@ -6,7 +6,6 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'unsafe-inline'; img-src data:; connect-src 'none'; base-uri 'none'; form-action 'none';" />
 <title>かんたん家計簿</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" crossorigin="anonymous"></script>
-<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" crossorigin="anonymous"></script>
 <style>
   :root {
     --bg: #f5f7fa;
@@ -323,10 +322,10 @@
   <section class="card form-card">
     <h2>クレカ明細インポート</h2>
     <div class="cc-import-box" id="cc-drop">
-      <p>Excel ファイル (.xlsx / .xls) をドラッグ&ドロップ、またはクリックして選択<br>
-      取り込み内容を確認してから登録できます。日付・金額・店舗を自動検出します。</p>
+      <p>CSV ファイル (.csv) をドラッグ&ドロップ、またはクリックして選択<br>
+      取り込み内容を確認してから登録できます。日付・金額・店舗を自動検出します (Shift_JIS / UTF-8 両対応)。</p>
       <button type="button" class="primary" id="cc-pick-btn">ファイルを選択</button>
-      <input type="file" id="cc-file" accept=".xlsx,.xls" style="display:none" />
+      <input type="file" id="cc-file" accept=".csv,text/csv" style="display:none" />
     </div>
   </section>
 
@@ -733,13 +732,6 @@
 
   function parseDateCell(v) {
     if (v == null || v === '') return null;
-    if (typeof v === 'number') {
-      const d = XLSX.SSF.parse_date_code(v);
-      if (d) return `${d.y}-${String(d.m).padStart(2,'0')}-${String(d.d).padStart(2,'0')}`;
-    }
-    if (v instanceof Date && !isNaN(v)) {
-      return `${v.getFullYear()}-${String(v.getMonth()+1).padStart(2,'0')}-${String(v.getDate()).padStart(2,'0')}`;
-    }
     const s = String(v).trim();
     let m = s.match(/^(\d{4})[\/\-年.](\d{1,2})[\/\-月.](\d{1,2})/);
     if (m) return `${m[1]}-${m[2].padStart(2,'0')}-${m[3].padStart(2,'0')}`;
@@ -849,18 +841,43 @@
   });
   document.getElementById('cc-cancel').addEventListener('click', hideCcPreview);
 
+  function parseCSV(text) {
+    const rows = [];
+    let row = [];
+    let field = '';
+    let inQuote = false;
+    for (let i = 0; i < text.length; i++) {
+      const c = text[i];
+      if (inQuote) {
+        if (c === '"') {
+          if (text[i + 1] === '"') { field += '"'; i++; }
+          else inQuote = false;
+        } else field += c;
+      } else {
+        if (c === '"') inQuote = true;
+        else if (c === ',') { row.push(field); field = ''; }
+        else if (c === '\n' || c === '\r') {
+          if (field !== '' || row.length > 0) { row.push(field); rows.push(row); row = []; field = ''; }
+          if (c === '\r' && text[i + 1] === '\n') i++;
+        } else field += c;
+      }
+    }
+    if (field !== '' || row.length > 0) { row.push(field); rows.push(row); }
+    return rows;
+  }
+
+  function decodeBuffer(buf) {
+    try { return new TextDecoder('utf-8', { fatal: true }).decode(buf); }
+    catch { return new TextDecoder('shift_jis').decode(buf); }
+  }
+
   function readCcFile(file) {
     if (!file) return;
-    if (typeof XLSX === 'undefined') {
-      alert('Excel 解析ライブラリ (SheetJS) が読み込めていません。インターネット接続を確認してください。');
-      return;
-    }
     const reader = new FileReader();
     reader.onload = (ev) => {
       try {
-        const wb = XLSX.read(ev.target.result, { type: 'array', cellDates: true });
-        const ws = wb.Sheets[wb.SheetNames[0]];
-        const rows = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: '' });
+        const text = decodeBuffer(ev.target.result);
+        const rows = parseCSV(text);
         const result = extractFromRows(rows);
         if (!result.ok) { alert(result.error); return; }
         if (result.items.length === 0) { alert('登録可能な行が見つかりませんでした'); return; }
