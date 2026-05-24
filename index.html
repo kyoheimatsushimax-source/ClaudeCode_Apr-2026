@@ -210,73 +210,6 @@
     background: var(--bg);
     color: var(--muted);
   }
-  .menu-wrap { position: relative; }
-  .menu {
-    position: absolute;
-    top: calc(100% + 4px);
-    right: 0;
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-    min-width: 200px;
-    z-index: 10;
-    overflow: hidden;
-  }
-  .menu button {
-    display: block;
-    width: 100%;
-    text-align: left;
-    background: white;
-    border: none;
-    padding: 10px 14px;
-    font-size: 13px;
-    cursor: pointer;
-    border-radius: 0;
-  }
-  .menu button:hover { background: var(--bg); }
-  .menu button.danger { color: var(--expense); }
-  .modal-overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,0.4);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 100;
-    padding: 16px;
-  }
-  .modal {
-    background: var(--card);
-    border-radius: 12px;
-    padding: 24px;
-    max-width: 420px;
-    width: 100%;
-    box-shadow: 0 20px 60px rgba(0,0,0,0.2);
-  }
-  .modal h2 { margin: 0 0 8px; font-size: 18px; }
-  .modal p { margin: 0 0 16px; color: var(--muted); font-size: 14px; }
-  .modal-body { margin-bottom: 16px; }
-  .modal-body label { display: block; margin: 10px 0 4px; font-size: 13px; color: var(--muted); }
-  .modal-body input { width: 100%; }
-  .modal-actions {
-    display: flex;
-    gap: 8px;
-    justify-content: flex-end;
-  }
-  .modal-actions button {
-    width: auto;
-    padding: 8px 16px;
-    cursor: pointer;
-  }
-  .modal-actions button.primary.danger { background: var(--expense); }
-  .modal-actions button.primary.danger:hover { background: #dc2626; }
-  .lock-status {
-    text-align: center;
-    padding: 60px 20px;
-    color: var(--muted);
-  }
-  .lock-status .icon { font-size: 48px; margin-bottom: 16px; }
 </style>
 </head>
 <body>
@@ -288,27 +221,13 @@
     <button id="next-month" aria-label="次の月">›</button>
   </div>
   <div class="tools">
-    <div class="menu-wrap">
-      <button id="security-btn"><span id="security-icon">🔓</span> セキュリティ ▾</button>
-      <div id="security-menu" class="menu" style="display:none">
-        <button type="button" data-action="enable">🔒 暗号化を有効にする</button>
-        <button type="button" data-action="lock">🔓 ロック</button>
-        <button type="button" data-action="change">🔑 パスフレーズ変更</button>
-        <button type="button" data-action="disable" class="danger">🛡️ 暗号化を無効化</button>
-      </div>
-    </div>
     <button id="export-btn">エクスポート</button>
     <button id="import-btn">インポート</button>
     <input type="file" id="import-file" accept="application/json" style="display:none" />
   </div>
 </header>
 
-<div id="lock-screen" class="lock-status" style="display:none">
-  <div class="icon">🔒</div>
-  <div>データはロックされています</div>
-</div>
-
-<main id="app-main">
+<main>
   <section class="card summary">
     <div class="summary-item">
       <div class="summary-label">収入</div>
@@ -407,149 +326,33 @@
   </section>
 </main>
 
-<div id="modal-overlay" class="modal-overlay" style="display:none">
-  <div class="modal" role="dialog" aria-modal="true">
-    <h2 id="modal-title"></h2>
-    <p id="modal-message"></p>
-    <div id="modal-body" class="modal-body"></div>
-    <div class="modal-actions">
-      <button type="button" id="modal-cancel">キャンセル</button>
-      <button type="button" id="modal-ok" class="primary">OK</button>
-    </div>
-  </div>
-</div>
-
 <script>
   const STORAGE_KEY = 'kakeibo.entries.v1';
   const BUDGET_KEY = 'kakeibo.budgets.v1';
-  const CRYPTO_KEY = 'kakeibo.crypto.v1';
   const CATEGORIES = {
     expense: ['食費', '日用品', '住居', '光熱費', '通信', '交通', '医療', '娯楽', '衣服', '教育', 'その他'],
     income: ['給与', '副業', 'ボーナス', '臨時収入', 'その他'],
   };
   const COLORS = ['#2563eb', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899', '#84cc16', '#f97316', '#6366f1', '#64748b'];
 
-  let entries = [];
-  let budgets = {};
+  let entries = load();
+  let budgets = loadBudgets();
   let viewMonth = new Date();
   viewMonth.setDate(1);
   let currentType = 'expense';
   let chart = null;
   let yearlyChart = null;
-  let cryptoKey = null;
-  let cryptoSalt = null;
 
-  function isEncryptedMode() { return !!localStorage.getItem(CRYPTO_KEY); }
-
-  function loadPlain() {
-    try { entries = JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; } catch { entries = []; }
-    try { budgets = JSON.parse(localStorage.getItem(BUDGET_KEY)) || {}; } catch { budgets = {}; }
+  function load() {
+    try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }
+    catch { return []; }
   }
-
-  async function persist() {
-    const payload = { entries, budgets };
-    if (cryptoKey) {
-      const blob = await encryptBlob(cryptoKey, cryptoSalt, payload);
-      localStorage.setItem(CRYPTO_KEY, JSON.stringify(blob));
-    } else {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
-      localStorage.setItem(BUDGET_KEY, JSON.stringify(budgets));
-    }
+  function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(entries)); }
+  function loadBudgets() {
+    try { return JSON.parse(localStorage.getItem(BUDGET_KEY)) || {}; }
+    catch { return {}; }
   }
-  function save() { persist().catch(e => alert('保存に失敗しました: ' + e.message)); }
-  function saveBudgets() { save(); }
-
-  function b64(buf) {
-    const bytes = buf instanceof Uint8Array ? buf : new Uint8Array(buf);
-    let s = '';
-    for (let i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
-    return btoa(s);
-  }
-  function unb64(str) {
-    const s = atob(str);
-    const out = new Uint8Array(s.length);
-    for (let i = 0; i < s.length; i++) out[i] = s.charCodeAt(i);
-    return out;
-  }
-  async function deriveKey(passphrase, salt) {
-    const enc = new TextEncoder();
-    const base = await crypto.subtle.importKey('raw', enc.encode(passphrase), 'PBKDF2', false, ['deriveKey']);
-    return crypto.subtle.deriveKey(
-      { name: 'PBKDF2', salt, iterations: 250000, hash: 'SHA-256' },
-      base,
-      { name: 'AES-GCM', length: 256 },
-      false,
-      ['encrypt', 'decrypt']
-    );
-  }
-  async function encryptBlob(key, salt, data) {
-    const iv = crypto.getRandomValues(new Uint8Array(12));
-    const enc = new TextEncoder();
-    const ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, enc.encode(JSON.stringify(data)));
-    return { v: 1, salt: b64(salt), iv: b64(iv), ct: b64(ct) };
-  }
-  async function decryptBlob(key, blob) {
-    const iv = unb64(blob.iv);
-    const ct = unb64(blob.ct);
-    const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, ct);
-    return JSON.parse(new TextDecoder().decode(plain));
-  }
-
-  function showModal({ title, message = '', fields = [], okText = 'OK', cancelText = 'キャンセル', cancelable = true, danger = false }) {
-    return new Promise((resolve) => {
-      const overlay = document.getElementById('modal-overlay');
-      document.getElementById('modal-title').textContent = title;
-      const msgEl = document.getElementById('modal-message');
-      msgEl.textContent = message;
-      msgEl.style.display = message ? '' : 'none';
-      const body = document.getElementById('modal-body');
-      body.innerHTML = '';
-      const inputs = {};
-      fields.forEach(f => {
-        const label = document.createElement('label');
-        label.textContent = f.label;
-        const input = document.createElement('input');
-        input.type = f.type || 'text';
-        input.autocomplete = 'off';
-        if (f.placeholder) input.placeholder = f.placeholder;
-        body.appendChild(label);
-        body.appendChild(input);
-        inputs[f.name] = input;
-      });
-      const okBtn = document.getElementById('modal-ok');
-      const cancelBtn = document.getElementById('modal-cancel');
-      okBtn.textContent = okText;
-      cancelBtn.textContent = cancelText;
-      cancelBtn.style.display = cancelable ? '' : 'none';
-      okBtn.classList.toggle('danger', !!danger);
-      overlay.style.display = 'flex';
-      const first = body.querySelector('input');
-      if (first) setTimeout(() => first.focus(), 0);
-
-      function cleanup(value) {
-        okBtn.removeEventListener('click', onOk);
-        cancelBtn.removeEventListener('click', onCancel);
-        document.removeEventListener('keydown', onKey);
-        overlay.style.display = 'none';
-        resolve(value);
-      }
-      function onOk() {
-        if (fields.length === 0) return cleanup(true);
-        const r = {};
-        for (const k in inputs) r[k] = inputs[k].value;
-        cleanup(r);
-      }
-      function onCancel() { cleanup(null); }
-      function onKey(e) {
-        if (overlay.style.display === 'none') return;
-        if (e.key === 'Enter' && e.target.tagName === 'INPUT') { e.preventDefault(); onOk(); }
-        else if (e.key === 'Escape' && cancelable) { e.preventDefault(); onCancel(); }
-      }
-      okBtn.addEventListener('click', onOk);
-      cancelBtn.addEventListener('click', onCancel);
-      document.addEventListener('keydown', onKey);
-    });
-  }
+  function saveBudgets() { localStorage.setItem(BUDGET_KEY, JSON.stringify(budgets)); }
   function fmt(n) { return '¥' + Math.round(n).toLocaleString('ja-JP'); }
   function ym(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); }
   function monthLabel(d) { return d.getFullYear() + '年 ' + (d.getMonth() + 1) + '月'; }
@@ -867,190 +670,11 @@
     }
   });
 
-  async function unlockFlow() {
-    while (true) {
-      const r = await showModal({
-        title: '🔒 ロック解除',
-        message: 'パスフレーズを入力してデータを復号します',
-        fields: [{ name: 'pass', label: 'パスフレーズ', type: 'password' }],
-        okText: 'ロック解除',
-        cancelable: false,
-      });
-      if (!r || !r.pass) continue;
-      try {
-        const blob = JSON.parse(localStorage.getItem(CRYPTO_KEY));
-        const salt = unb64(blob.salt);
-        const key = await deriveKey(r.pass, salt);
-        const data = await decryptBlob(key, blob);
-        cryptoKey = key;
-        cryptoSalt = salt;
-        entries = (data.entries || []).map(sanitizeEntry).filter(Boolean);
-        budgets = sanitizeBudgets(data.budgets || {});
-        return true;
-      } catch (e) {
-        const retry = await showModal({
-          title: '❌ パスフレーズが違います',
-          message: '再入力するか、データを完全に削除してリセットできます。',
-          okText: 'もう一度入力',
-          cancelText: '全データ削除',
-          danger: false,
-        });
-        if (retry === null) {
-          const c = await showModal({
-            title: '⚠️ 本当に全データを削除しますか?',
-            message: '暗号化されたデータが完全に消去されます。元に戻せません。',
-            okText: '削除する',
-            cancelText: 'やめる',
-            danger: true,
-          });
-          if (c === true) {
-            localStorage.removeItem(CRYPTO_KEY);
-            entries = [];
-            budgets = {};
-            cryptoKey = null;
-            cryptoSalt = null;
-            return true;
-          }
-        }
-      }
-    }
-  }
-
-  function updateSecurityUI() {
-    const encrypted = !!cryptoKey || isEncryptedMode();
-    document.getElementById('security-icon').textContent = encrypted ? '🔒' : '🔓';
-    const menu = document.getElementById('security-menu');
-    menu.querySelector('[data-action="enable"]').style.display = encrypted ? 'none' : '';
-    menu.querySelector('[data-action="lock"]').style.display = encrypted ? '' : 'none';
-    menu.querySelector('[data-action="change"]').style.display = encrypted ? '' : 'none';
-    menu.querySelector('[data-action="disable"]').style.display = encrypted ? '' : 'none';
-  }
-
-  async function enableEncryption() {
-    const r = await showModal({
-      title: '🔒 暗号化を有効にする',
-      message: 'パスフレーズを設定します。忘れるとデータを復号できません。',
-      fields: [
-        { name: 'p1', label: 'パスフレーズ (6文字以上)', type: 'password' },
-        { name: 'p2', label: '確認のため再入力', type: 'password' },
-      ],
-      okText: '有効化',
-    });
-    if (!r) return;
-    if (!r.p1 || r.p1.length < 6) { alert('パスフレーズは6文字以上にしてください'); return; }
-    if (r.p1 !== r.p2) { alert('パスフレーズが一致しません'); return; }
-    const salt = crypto.getRandomValues(new Uint8Array(16));
-    cryptoKey = await deriveKey(r.p1, salt);
-    cryptoSalt = salt;
-    await persist();
-    localStorage.removeItem(STORAGE_KEY);
-    localStorage.removeItem(BUDGET_KEY);
-    updateSecurityUI();
-    alert('暗号化を有効にしました');
-  }
-
-  async function changePassphrase() {
-    const r = await showModal({
-      title: '🔑 パスフレーズ変更',
-      fields: [
-        { name: 'cur', label: '現在のパスフレーズ', type: 'password' },
-        { name: 'p1', label: '新しいパスフレーズ (6文字以上)', type: 'password' },
-        { name: 'p2', label: '新しいパスフレーズ (確認)', type: 'password' },
-      ],
-      okText: '変更',
-    });
-    if (!r) return;
-    try {
-      const blob = JSON.parse(localStorage.getItem(CRYPTO_KEY));
-      const salt = unb64(blob.salt);
-      const k = await deriveKey(r.cur, salt);
-      await decryptBlob(k, blob);
-    } catch { alert('現在のパスフレーズが違います'); return; }
-    if (!r.p1 || r.p1.length < 6) { alert('新しいパスフレーズは6文字以上'); return; }
-    if (r.p1 !== r.p2) { alert('新しいパスフレーズが一致しません'); return; }
-    const newSalt = crypto.getRandomValues(new Uint8Array(16));
-    cryptoKey = await deriveKey(r.p1, newSalt);
-    cryptoSalt = newSalt;
-    await persist();
-    alert('パスフレーズを変更しました');
-  }
-
-  async function disableEncryption() {
-    const r = await showModal({
-      title: '🛡️ 暗号化を無効化',
-      message: '確認のため現在のパスフレーズを入力してください。データは平文に戻ります。',
-      fields: [{ name: 'p', label: 'パスフレーズ', type: 'password' }],
-      okText: '無効化',
-      danger: true,
-    });
-    if (!r) return;
-    try {
-      const blob = JSON.parse(localStorage.getItem(CRYPTO_KEY));
-      const salt = unb64(blob.salt);
-      const k = await deriveKey(r.p, salt);
-      await decryptBlob(k, blob);
-    } catch { alert('パスフレーズが違います'); return; }
-    cryptoKey = null;
-    cryptoSalt = null;
-    localStorage.removeItem(CRYPTO_KEY);
-    await persist();
-    updateSecurityUI();
-    alert('暗号化を無効化しました');
-  }
-
-  async function lockApp() {
-    cryptoKey = null;
-    cryptoSalt = null;
-    entries = [];
-    budgets = {};
-    document.getElementById('app-main').style.display = 'none';
-    document.getElementById('lock-screen').style.display = 'block';
-    const ok = await unlockFlow();
-    if (ok) {
-      document.getElementById('lock-screen').style.display = 'none';
-      document.getElementById('app-main').style.display = '';
-      updateSecurityUI();
-      render();
-    }
-  }
-
-  document.getElementById('security-btn').addEventListener('click', (e) => {
-    e.stopPropagation();
-    const menu = document.getElementById('security-menu');
-    menu.style.display = menu.style.display === 'none' ? '' : 'none';
-  });
-  document.addEventListener('click', () => {
-    document.getElementById('security-menu').style.display = 'none';
-  });
-  document.getElementById('security-menu').addEventListener('click', async (e) => {
-    const action = e.target.dataset.action;
-    if (!action) return;
-    document.getElementById('security-menu').style.display = 'none';
-    if (action === 'enable') await enableEncryption();
-    else if (action === 'change') await changePassphrase();
-    else if (action === 'disable') await disableEncryption();
-    else if (action === 'lock') await lockApp();
-  });
-
-  async function boot() {
-    if (isEncryptedMode()) {
-      document.getElementById('app-main').style.display = 'none';
-      document.getElementById('lock-screen').style.display = 'block';
-      const ok = await unlockFlow();
-      if (!ok) return;
-      document.getElementById('lock-screen').style.display = 'none';
-      document.getElementById('app-main').style.display = '';
-    } else {
-      loadPlain();
-    }
-    document.getElementById('date').value = new Date().toISOString().slice(0, 10);
-    setType('expense');
-    refreshBudgetCategorySelect();
-    document.getElementById('budget-amount').value = budgets[document.getElementById('budget-category').value] || '';
-    updateSecurityUI();
-    render();
-  }
-  boot();
+  document.getElementById('date').value = new Date().toISOString().slice(0, 10);
+  setType('expense');
+  refreshBudgetCategorySelect();
+  document.getElementById('budget-amount').value = budgets[document.getElementById('budget-category').value] || '';
+  render();
 </script>
 </body>
 </html>
