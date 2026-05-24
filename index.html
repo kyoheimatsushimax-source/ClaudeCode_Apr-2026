@@ -325,7 +325,7 @@
       <p>CSV ファイル (.csv) をドラッグ&ドロップ、またはクリックして選択<br>
       取り込み内容を確認してから登録できます。日付・金額・店舗を自動検出します (Shift_JIS / UTF-8 両対応)。</p>
       <button type="button" class="primary" id="cc-pick-btn">ファイルを選択</button>
-      <input type="file" id="cc-file" accept=".csv,text/csv" style="display:none" />
+      <input type="file" id="cc-file" accept=".csv,text/csv,application/csv,application/vnd.ms-excel,text/plain" style="display:none" />
     </div>
   </section>
 
@@ -720,9 +720,9 @@
     }
   });
 
-  const DATE_HEADERS = ['利用日', 'ご利用日', '取引日', '日付', '日時', 'date', 'transaction date'];
-  const AMOUNT_HEADERS = ['利用金額', 'ご利用金額', '金額', '請求金額', 'amount', '利用額', 'ご利用金額(円)'];
-  const DESC_HEADERS = ['利用店名', 'ご利用店舗', '利用店舗', '店名', '店舗', '摘要', '内容', '備考', '利用先', 'description', 'merchant'];
+  const DATE_HEADERS = ['利用日', 'ご利用日', '取引日', '日付', '日時', 'date', 'transaction date', 'ご利用年月日', '伝票日付', 'お支払日'];
+  const AMOUNT_HEADERS = ['利用金額', 'ご利用金額', '金額', '請求金額', 'amount', '利用額', 'ご利用金額(円)', 'ご利用金額(￥)', 'ご請求金額', 'お支払金額', '支払金額'];
+  const DESC_HEADERS = ['利用店名', 'ご利用店舗', '利用店舗', '店名', '店舗', '摘要', '内容', '備考', '利用先', 'description', 'merchant', 'ご利用先', 'ご利用店名', '利用店名・商品名', 'ご利用先など'];
 
   function normalizeHeader(s) { return String(s || '').toLowerCase().replace(/\s+/g, '').replace(/[・(（）)]/g, ''); }
   function matchHeader(cell, candidates) {
@@ -841,7 +841,7 @@
   });
   document.getElementById('cc-cancel').addEventListener('click', hideCcPreview);
 
-  function parseCSV(text) {
+  function parseCSV(text, sep) {
     const rows = [];
     let row = [];
     let field = '';
@@ -855,7 +855,7 @@
         } else field += c;
       } else {
         if (c === '"') inQuote = true;
-        else if (c === ',') { row.push(field); field = ''; }
+        else if (c === sep) { row.push(field); field = ''; }
         else if (c === '\n' || c === '\r') {
           if (field !== '' || row.length > 0) { row.push(field); rows.push(row); row = []; field = ''; }
           if (c === '\r' && text[i + 1] === '\n') i++;
@@ -866,9 +866,21 @@
     return rows;
   }
 
+  function detectSeparator(text) {
+    const sample = text.split(/\r?\n/).slice(0, 10).join('\n');
+    const counts = { ',': 0, '\t': 0, ';': 0 };
+    for (const c of sample) if (c in counts) counts[c]++;
+    let best = ','; let max = -1;
+    for (const k in counts) if (counts[k] > max) { max = counts[k]; best = k; }
+    return best;
+  }
+
   function decodeBuffer(buf) {
-    try { return new TextDecoder('utf-8', { fatal: true }).decode(buf); }
-    catch { return new TextDecoder('shift_jis').decode(buf); }
+    let text;
+    try { text = new TextDecoder('utf-8', { fatal: true }).decode(buf); }
+    catch { text = new TextDecoder('shift_jis').decode(buf); }
+    if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
+    return text;
   }
 
   function readCcFile(file) {
@@ -877,10 +889,19 @@
     reader.onload = (ev) => {
       try {
         const text = decodeBuffer(ev.target.result);
-        const rows = parseCSV(text);
+        if (!text.trim()) { alert('ファイルが空です'); return; }
+        const sep = detectSeparator(text);
+        const rows = parseCSV(text, sep);
         const result = extractFromRows(rows);
-        if (!result.ok) { alert(result.error); return; }
-        if (result.items.length === 0) { alert('登録可能な行が見つかりませんでした'); return; }
+        if (!result.ok) {
+          const sample = rows.slice(0, Math.min(5, rows.length)).map((r, i) => `[${i+1}] ${r.slice(0, 8).join(' | ')}`).join('\n');
+          alert(`${result.error}\n\n区切り文字: "${sep === '\t' ? 'TAB' : sep}"\n先頭5行のプレビュー:\n${sample}\n\nヘッダーの正確な名前をコピーして報告いただければ対応します。`);
+          return;
+        }
+        if (result.items.length === 0) {
+          alert(`登録可能な行が見つかりませんでした (列は検出できましたが、日付・金額が空のようです)`);
+          return;
+        }
         showCcPreview(result.items);
       } catch (e) {
         alert('ファイルを解析できませんでした: ' + e.message);
