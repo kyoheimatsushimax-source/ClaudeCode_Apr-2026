@@ -209,6 +209,149 @@
   .modal-stats { display: flex; gap: 16px; font-size: 13px; flex-wrap: wrap; margin-bottom: 8px; }
   .modal-stats span { color: var(--muted); }
   .modal-stats span b { color: var(--text); }
+
+  .hero {
+    background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 50%, #3b82f6 100%);
+    color: white;
+    padding: 28px 24px;
+    border-radius: 14px;
+    box-shadow: 0 10px 30px rgba(37, 99, 235, 0.25);
+  }
+  .hero-title {
+    font-size: 13px;
+    opacity: 0.85;
+    margin-bottom: 4px;
+    letter-spacing: 0.04em;
+  }
+  .hero-month {
+    font-size: 22px;
+    font-weight: 700;
+    margin-bottom: 20px;
+  }
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+  }
+  @media (max-width: 720px) {
+    .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+  .kpi {
+    background: rgba(255,255,255,0.12);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 10px;
+    padding: 14px 16px;
+  }
+  .kpi-label {
+    font-size: 12px;
+    opacity: 0.85;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 6px;
+  }
+  .kpi-icon { font-size: 14px; }
+  .kpi-value {
+    font-size: 22px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.2;
+  }
+  .kpi-delta {
+    margin-top: 4px;
+    font-size: 12px;
+    opacity: 0.9;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .kpi-delta.up { color: #fca5a5; }
+  .kpi-delta.down { color: #86efac; }
+  .kpi-delta.good { color: #86efac; }
+  .kpi-delta.bad { color: #fca5a5; }
+  .kpi-delta.neutral { opacity: 0.7; }
+
+  .grid-2 {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+  @media (min-width: 900px) {
+    .grid-2 { grid-template-columns: 1fr 1fr; }
+  }
+  .ranking { display: grid; gap: 8px; }
+  .ranking-row {
+    display: grid;
+    grid-template-columns: 28px 1fr auto;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    background: var(--bg);
+    border-radius: 8px;
+    font-size: 13px;
+  }
+  .ranking-rank {
+    font-weight: 700;
+    color: var(--muted);
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+  }
+  .ranking-row:nth-child(1) .ranking-rank { color: #f59e0b; }
+  .ranking-row:nth-child(2) .ranking-rank { color: #94a3b8; }
+  .ranking-row:nth-child(3) .ranking-rank { color: #b45309; }
+  .ranking-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .ranking-name small { color: var(--muted); font-size: 11px; margin-left: 6px; }
+  .ranking-amount {
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: var(--expense);
+  }
+  .ranking-empty { color: var(--muted); font-size: 13px; padding: 8px; }
+
+  .mini-stats {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  .mini-stat {
+    padding: 10px 12px;
+    background: var(--bg);
+    border-radius: 8px;
+  }
+  .mini-stat-label { font-size: 11px; color: var(--muted); margin-bottom: 2px; }
+  .mini-stat-value { font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums; }
+
+  .progress-ring-wrap {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+  .progress-ring {
+    position: relative;
+    width: 80px;
+    height: 80px;
+    flex-shrink: 0;
+  }
+  .progress-ring svg { transform: rotate(-90deg); }
+  .progress-ring-text {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 18px;
+  }
+  .progress-info { flex: 1; }
+  .progress-info-title { font-size: 13px; color: var(--muted); margin-bottom: 4px; }
+  .progress-info-value { font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums; }
   .tools {
     display: flex;
     gap: 8px;
@@ -248,23 +391,75 @@
 </header>
 
 <main>
-  <section class="card summary">
-    <div class="summary-item">
-      <div class="summary-label">収入</div>
-      <div class="summary-value income" id="total-income">¥0</div>
+  <section class="hero form-card">
+    <div class="hero-title">家計ダッシュボード</div>
+    <div class="hero-month" id="hero-month">—</div>
+    <div class="kpi-grid">
+      <div class="kpi">
+        <div class="kpi-label"><span class="kpi-icon">💰</span>収入</div>
+        <div class="kpi-value" id="kpi-income">¥0</div>
+        <div class="kpi-delta neutral" id="kpi-income-delta">—</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label"><span class="kpi-icon">💸</span>支出</div>
+        <div class="kpi-value" id="kpi-expense">¥0</div>
+        <div class="kpi-delta neutral" id="kpi-expense-delta">—</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label"><span class="kpi-icon">📊</span>収支</div>
+        <div class="kpi-value" id="kpi-balance">¥0</div>
+        <div class="kpi-delta neutral" id="kpi-balance-delta">—</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label"><span class="kpi-icon">🎯</span>貯蓄率</div>
+        <div class="kpi-value" id="kpi-rate">—</div>
+        <div class="kpi-delta neutral" id="kpi-rate-delta">—</div>
+      </div>
     </div>
-    <div class="summary-item">
-      <div class="summary-label">支出</div>
-      <div class="summary-value expense" id="total-expense">¥0</div>
+  </section>
+
+  <section class="form-card grid-2">
+    <div class="card">
+      <h2>💸 支出の内訳</h2>
+      <div class="mini-stats">
+        <div class="mini-stat">
+          <div class="mini-stat-label">日割り平均</div>
+          <div class="mini-stat-value" id="stat-daily-expense">¥0</div>
+        </div>
+        <div class="mini-stat">
+          <div class="mini-stat-label">月末予測</div>
+          <div class="mini-stat-value" id="stat-projection">¥0</div>
+        </div>
+      </div>
+      <div class="chart-container">
+        <canvas id="chart"></canvas>
+      </div>
     </div>
-    <div class="summary-item">
-      <div class="summary-label">収支</div>
-      <div class="summary-value balance" id="total-balance">¥0</div>
+    <div class="card">
+      <h2>💰 収入の内訳</h2>
+      <div class="mini-stats">
+        <div class="mini-stat">
+          <div class="mini-stat-label">給与</div>
+          <div class="mini-stat-value" id="stat-salary">¥0</div>
+        </div>
+        <div class="mini-stat">
+          <div class="mini-stat-label">補助金</div>
+          <div class="mini-stat-value" id="stat-subsidy">¥0</div>
+        </div>
+      </div>
+      <div class="chart-container">
+        <canvas id="income-chart"></canvas>
+      </div>
     </div>
   </section>
 
   <section class="card form-card">
-    <h2>記録を追加</h2>
+    <h2>🏆 Top支出先 (クレカ)</h2>
+    <div class="ranking" id="merchant-ranking"></div>
+  </section>
+
+  <section class="card form-card">
+    <h2>✏️ 記録を追加</h2>
     <form id="entry-form">
       <div>
         <label>種類</label>
@@ -296,15 +491,8 @@
     </form>
   </section>
 
-  <section class="card">
-    <h2>カテゴリ別 支出</h2>
-    <div class="chart-container">
-      <canvas id="chart"></canvas>
-    </div>
-  </section>
-
-  <section class="card">
-    <h2>予算 達成状況</h2>
+  <section class="card form-card">
+    <h2>🎯 予算 達成状況</h2>
     <div class="budget-list" id="budget-list"></div>
     <div class="budget-edit">
       <div style="flex:1; min-width:140px;">
@@ -320,7 +508,7 @@
   </section>
 
   <section class="card form-card">
-    <h2>クレカ明細インポート</h2>
+    <h2>💳 クレカ明細インポート (CSV)</h2>
     <div class="cc-import-box" id="cc-drop">
       <p>CSV ファイル (.csv) をドラッグ&ドロップ、またはクリックして選択<br>
       取り込み内容を確認してから登録できます。日付・金額・店舗を自動検出します (Shift_JIS / UTF-8 両対応)。</p>
@@ -330,14 +518,14 @@
   </section>
 
   <section class="card form-card">
-    <h2>年間推移 (収入・支出・収支)</h2>
+    <h2>📈 年間推移 (収入・支出・収支)</h2>
     <div class="chart-container wide">
       <canvas id="yearly-chart"></canvas>
     </div>
   </section>
 
   <section class="card form-card">
-    <h2>明細 <span class="badge" id="entry-count">0件</span></h2>
+    <h2>📋 明細 <span class="badge" id="entry-count">0件</span></h2>
     <div id="entries-wrap">
       <table id="entries-table">
         <thead>
@@ -391,6 +579,7 @@
   viewMonth.setDate(1);
   let currentType = 'expense';
   let chart = null;
+  let incomeChart = null;
   let yearlyChart = null;
 
   function load() {
@@ -424,19 +613,54 @@
 
   function render() {
     document.getElementById('month-label').textContent = monthLabel(viewMonth);
+    document.getElementById('hero-month').textContent = monthLabel(viewMonth);
     const monthKey = ym(viewMonth);
     const monthEntries = entries
       .filter(e => e.date.startsWith(monthKey))
       .sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id);
 
-    const income = monthEntries.filter(e => e.type === 'income').reduce((s, e) => s + e.amount, 0);
-    const expense = monthEntries.filter(e => e.type === 'expense').reduce((s, e) => s + e.amount, 0);
-    document.getElementById('total-income').textContent = fmt(income);
-    document.getElementById('total-expense').textContent = fmt(expense);
+    const monthIncomes = monthEntries.filter(e => e.type === 'income');
+    const monthExpenses = monthEntries.filter(e => e.type === 'expense');
+    const income = monthIncomes.reduce((s, e) => s + e.amount, 0);
+    const expense = monthExpenses.reduce((s, e) => s + e.amount, 0);
     const bal = income - expense;
-    const balEl = document.getElementById('total-balance');
+    const rate = income > 0 ? (bal / income) * 100 : null;
+
+    const prev = new Date(viewMonth); prev.setMonth(prev.getMonth() - 1);
+    const prevKey = ym(prev);
+    const prevEntries = entries.filter(e => e.date.startsWith(prevKey));
+    const prevIncome = prevEntries.filter(e => e.type === 'income').reduce((s, e) => s + e.amount, 0);
+    const prevExpense = prevEntries.filter(e => e.type === 'expense').reduce((s, e) => s + e.amount, 0);
+    const prevBal = prevIncome - prevExpense;
+    const prevRate = prevIncome > 0 ? (prevBal / prevIncome) * 100 : null;
+
+    document.getElementById('kpi-income').textContent = fmt(income);
+    document.getElementById('kpi-expense').textContent = fmt(expense);
+    const balEl = document.getElementById('kpi-balance');
     balEl.textContent = (bal >= 0 ? '' : '-') + fmt(Math.abs(bal));
-    balEl.style.color = bal >= 0 ? 'var(--primary)' : 'var(--expense)';
+    document.getElementById('kpi-rate').textContent = rate === null ? '—' : rate.toFixed(0) + '%';
+
+    setDelta('kpi-income-delta', income, prevIncome, 'higher-better');
+    setDelta('kpi-expense-delta', expense, prevExpense, 'lower-better');
+    setDelta('kpi-balance-delta', bal, prevBal, 'higher-better');
+    setRateDelta('kpi-rate-delta', rate, prevRate);
+
+    const now = new Date();
+    const isCurrentMonth = ym(now) === monthKey;
+    const daysInMonth = new Date(viewMonth.getFullYear(), viewMonth.getMonth() + 1, 0).getDate();
+    const dayBasis = isCurrentMonth ? now.getDate() : daysInMonth;
+    const dailyAvg = dayBasis > 0 ? expense / dayBasis : 0;
+    document.getElementById('stat-daily-expense').textContent = fmt(dailyAvg);
+    const projection = isCurrentMonth ? Math.round(dailyAvg * daysInMonth) : expense;
+    document.getElementById('stat-projection').textContent = fmt(projection);
+
+    const salaryTotal = monthIncomes.filter(e => /給与/.test(e.category)).reduce((s, e) => s + e.amount, 0);
+    const subsidyTotal = monthIncomes.filter(e => /補助金/.test(e.category)).reduce((s, e) => s + e.amount, 0);
+    document.getElementById('stat-salary').textContent = fmt(salaryTotal);
+    document.getElementById('stat-subsidy').textContent = fmt(subsidyTotal);
+
+    renderMerchantRanking(monthExpenses);
+    renderIncomeChart(monthIncomes);
 
     const body = document.getElementById('entries-body');
     const empty = document.getElementById('empty-msg');
@@ -567,6 +791,89 @@
       if (Number.isFinite(v) && v > 0) out[cat] = Math.round(v);
     }
     return out;
+  }
+
+  function setDelta(elId, cur, prev, polarity) {
+    const el = document.getElementById(elId);
+    if (!prev) { el.textContent = '前月データなし'; el.className = 'kpi-delta neutral'; return; }
+    const diff = cur - prev;
+    const pct = prev !== 0 ? (diff / Math.abs(prev)) * 100 : 0;
+    const arrow = diff > 0 ? '▲' : diff < 0 ? '▼' : '–';
+    let cls = 'neutral';
+    if (diff !== 0) {
+      const isUp = diff > 0;
+      if (polarity === 'higher-better') cls = isUp ? 'good' : 'bad';
+      else if (polarity === 'lower-better') cls = isUp ? 'bad' : 'good';
+    }
+    el.className = 'kpi-delta ' + cls;
+    el.textContent = `${arrow} 前月比 ${diff >= 0 ? '+' : '-'}${fmt(Math.abs(diff))} (${pct >= 0 ? '+' : ''}${pct.toFixed(1)}%)`;
+  }
+
+  function setRateDelta(elId, cur, prev) {
+    const el = document.getElementById(elId);
+    if (cur === null || prev === null) { el.textContent = '前月データなし'; el.className = 'kpi-delta neutral'; return; }
+    const diff = cur - prev;
+    const arrow = diff > 0 ? '▲' : diff < 0 ? '▼' : '–';
+    const cls = diff > 0 ? 'good' : diff < 0 ? 'bad' : 'neutral';
+    el.className = 'kpi-delta ' + cls;
+    el.textContent = `${arrow} 前月比 ${diff >= 0 ? '+' : ''}${diff.toFixed(1)}pt`;
+  }
+
+  function renderMerchantRanking(monthExpenses) {
+    const ccItems = monthExpenses.filter(e => e.category === 'クレカ' && e.memo);
+    const byMerchant = {};
+    ccItems.forEach(e => {
+      const key = e.memo;
+      if (!byMerchant[key]) byMerchant[key] = { total: 0, count: 0 };
+      byMerchant[key].total += e.amount;
+      byMerchant[key].count++;
+    });
+    const sorted = Object.entries(byMerchant).sort((a, b) => b[1].total - a[1].total).slice(0, 8);
+    const el = document.getElementById('merchant-ranking');
+    if (sorted.length === 0) {
+      el.innerHTML = '<div class="ranking-empty">この月のクレカ明細はまだありません。CSV をインポートするとここに利用先トップが表示されます。</div>';
+      return;
+    }
+    el.innerHTML = sorted.map(([name, info], i) => `
+      <div class="ranking-row">
+        <div class="ranking-rank">${i + 1}</div>
+        <div class="ranking-name">${escapeHtml(name)}<small>${info.count}回</small></div>
+        <div class="ranking-amount">${fmt(info.total)}</div>
+      </div>`).join('');
+  }
+
+  function renderIncomeChart(monthIncomes) {
+    const byCat = {};
+    monthIncomes.forEach(e => { byCat[e.category] = (byCat[e.category] || 0) + e.amount; });
+    const labels = Object.keys(byCat);
+    const data = labels.map(l => byCat[l]);
+    const ctx = document.getElementById('income-chart').getContext('2d');
+    if (incomeChart) incomeChart.destroy();
+    if (labels.length === 0) {
+      ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+      return;
+    }
+    const greens = ['#10b981', '#059669', '#34d399', '#6ee7b7', '#a7f3d0', '#22c55e', '#16a34a', '#86efac'];
+    incomeChart = new Chart(ctx, {
+      type: 'doughnut',
+      data: { labels, datasets: [{ data, backgroundColor: greens, borderWidth: 2, borderColor: '#fff' }] },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'right', labels: { font: { size: 12 } } },
+          tooltip: {
+            callbacks: {
+              label: (c) => {
+                const total = data.reduce((a, b) => a + b, 0);
+                const pct = ((c.parsed / total) * 100).toFixed(1);
+                return `${c.label}: ${fmt(c.parsed)} (${pct}%)`;
+              },
+            },
+          },
+        },
+      },
+    });
   }
 
   function renderChart(expenseEntries) {
