@@ -85,7 +85,7 @@
   h2 { font-size: 16px; margin: 0 0 16px; }
   form { display: grid; gap: 10px; grid-template-columns: repeat(2, 1fr); }
   @media (min-width: 700px) {
-    form { grid-template-columns: 120px 120px 140px 90px 1fr 120px auto; align-items: end; }
+    form { grid-template-columns: 120px 120px 90px 140px 90px 1fr 120px auto; align-items: end; }
   }
   label { font-size: 12px; color: var(--muted); display: block; margin-bottom: 4px; }
   input, select, button {
@@ -377,6 +377,19 @@
   .payer-select.family { background: #dbeafe; color: #1e40af; border-color: #bfdbfe; }
   .payer-select.k { background: #fef3c7; color: #92400e; border-color: #fde68a; }
   .payer-select.c { background: #fce7f3; color: #9f1239; border-color: #fbcfe8; }
+  .user-select {
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 2px 4px;
+    font-size: 12px;
+    font-weight: 600;
+    width: auto;
+    cursor: pointer;
+    background: white;
+  }
+  .user-select.family { background: #f1f5f9; color: #475569; border-color: #e2e8f0; }
+  .user-select.k { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+  .user-select.c { background: #fce7f3; color: #9f1239; border-color: #fbcfe8; }
 
   .personal-grid {
     display: grid;
@@ -557,6 +570,14 @@
         <input type="date" id="date" required />
       </div>
       <div>
+        <label for="user">利用者</label>
+        <select id="user">
+          <option value="家族">家族</option>
+          <option value="K">K</option>
+          <option value="C">C</option>
+        </select>
+      </div>
+      <div>
         <label for="category">カテゴリ</label>
         <select id="category" required></select>
       </div>
@@ -622,6 +643,7 @@
         <thead>
           <tr>
             <th>日付</th>
+            <th>利用者</th>
             <th>カテゴリ</th>
             <th>負担</th>
             <th>メモ</th>
@@ -672,8 +694,21 @@
   };
   function allCategories(type) { return CATEGORIES[type].concat(CATEGORIES_LEGACY[type]); }
   const PAYERS = ['家族', 'K', 'C'];
+  const USERS = ['家族', 'K', 'C'];
+  const CARD_USERS = { '1047': 'K', '2011': 'C' };
   function payerOf(e) { return PAYERS.includes(e.payer) ? e.payer : '家族'; }
+  function userOf(e) { return USERS.includes(e.user) ? e.user : '家族'; }
   function isFamily(e) { return payerOf(e) === '家族'; }
+
+  function detectCardUser(cells) {
+    const text = cells.map(c => String(c == null ? '' : c)).join(' | ');
+    const re = /[*＊][*＊\-－\s]{0,30}(\d{4})\b/g;
+    let m;
+    while ((m = re.exec(text)) !== null) {
+      if (CARD_USERS[m[1]]) return CARD_USERS[m[1]];
+    }
+    return null;
+  }
   const COLORS = ['#2563eb', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899', '#84cc16', '#f97316', '#6366f1', '#64748b'];
 
   let entries = load();
@@ -780,12 +815,16 @@
       body.innerHTML = monthEntries.map(e => {
         const p = payerOf(e);
         const pcls = p === 'K' ? 'k' : p === 'C' ? 'c' : 'family';
-        const opts = PAYERS.map(v => `<option value="${v}"${v === p ? ' selected' : ''}>${v}</option>`).join('');
+        const u = userOf(e);
+        const ucls = u === 'K' ? 'k' : u === 'C' ? 'c' : 'family';
+        const pOpts = PAYERS.map(v => `<option value="${v}"${v === p ? ' selected' : ''}>${v}</option>`).join('');
+        const uOpts = USERS.map(v => `<option value="${v}"${v === u ? ' selected' : ''}>${v}</option>`).join('');
         return `
         <tr>
           <td>${escapeHtml(e.date.slice(5).replace('-', '/'))}</td>
+          <td><select class="user-select ${ucls}" data-user-id="${Number(e.id)}">${uOpts}</select></td>
           <td>${escapeHtml(e.category)}</td>
-          <td><select class="payer-select ${pcls}" data-payer-id="${Number(e.id)}">${opts}</select></td>
+          <td><select class="payer-select ${pcls}" data-payer-id="${Number(e.id)}">${pOpts}</select></td>
           <td>${escapeHtml(e.memo || '')}</td>
           <td class="amount ${e.type === 'income' ? 'income' : 'expense'}">${e.type === 'income' ? '+' : '-'}${fmt(e.amount)}</td>
           <td><button class="delete-btn" data-id="${Number(e.id)}" title="削除">×</button></td>
@@ -890,7 +929,8 @@
     const memo = typeof e.memo === 'string' ? e.memo.slice(0, 200) : '';
     const id = Number.isFinite(Number(e.id)) ? Number(e.id) : Date.now() + Math.random();
     const payer = PAYERS.includes(e.payer) ? e.payer : '家族';
-    return { id, type, date, category, memo, amount: Math.round(amount), payer };
+    const user = USERS.includes(e.user) ? e.user : '家族';
+    return { id, type, date, category, memo, amount: Math.round(amount), payer, user };
   }
 
   function sanitizeBudgets(b) {
@@ -1056,6 +1096,7 @@
       date: document.getElementById('date').value,
       category: document.getElementById('category').value,
       payer: document.getElementById('payer').value,
+      user: document.getElementById('user').value,
       memo: document.getElementById('memo').value.trim(),
       amount: parseInt(document.getElementById('amount').value, 10),
     };
@@ -1064,6 +1105,7 @@
     document.getElementById('amount').value = '';
     document.getElementById('memo').value = '';
     document.getElementById('payer').value = '家族';
+    document.getElementById('user').value = '家族';
     render();
   });
 
@@ -1079,13 +1121,16 @@
   });
 
   document.getElementById('entries-body').addEventListener('change', (e) => {
-    const id = e.target.dataset.payerId;
+    const payerId = e.target.dataset.payerId;
+    const userId = e.target.dataset.userId;
+    const id = Number(payerId || userId);
     if (!id) return;
-    const target = entries.find(x => x.id === Number(id));
+    const target = entries.find(x => x.id === id);
     if (!target) return;
-    const newPayer = e.target.value;
-    if (!PAYERS.includes(newPayer)) return;
-    target.payer = newPayer;
+    const val = e.target.value;
+    if (payerId && PAYERS.includes(val)) target.payer = val;
+    else if (userId && USERS.includes(val)) target.user = val;
+    else return;
     save();
     render();
   });
@@ -1224,6 +1269,11 @@
   function extractFromRows(rows) {
     const cols = detectColumns(rows);
     if (!cols) return { ok: false, error: '日付列・金額列が見つかりませんでした。ヘッダー行 (利用日 / 金額) を確認してください。' };
+    let fileUser = null;
+    for (let r = 0; r < Math.min(rows.length, cols.headerRow + 1); r++) {
+      const u = detectCardUser(rows[r] || []);
+      if (u) { fileUser = u; break; }
+    }
     const out = [];
     for (let r = cols.headerRow + 1; r < rows.length; r++) {
       const row = rows[r] || [];
@@ -1231,18 +1281,21 @@
       const amount = parseAmountCell(row[cols.amount]);
       if (!date || !amount) continue;
       const desc = cols.desc >= 0 ? String(row[cols.desc] || '').trim().slice(0, 200) : '';
-      out.push({ date, amount, memo: desc });
+      const rowUser = detectCardUser(row) || fileUser || '家族';
+      out.push({ date, amount, memo: desc, user: rowUser });
     }
     return { ok: true, items: out };
   }
 
   function isDuplicate(item, payer) {
+    const itemUser = item.user || '家族';
     return entries.some(e =>
       e.type === 'expense' &&
       e.date === item.date &&
       e.amount === item.amount &&
       (e.memo || '') === (item.memo || '') &&
-      payerOf(e) === payer
+      payerOf(e) === payer &&
+      userOf(e) === itemUser
     );
   }
 
@@ -1269,12 +1322,13 @@
     const rowsHtml = items.map((i, idx) => `
       <tr class="${dupFlags[idx] ? 'dup' : ''}">
         <td>${escapeHtml(i.date)}</td>
+        <td>${escapeHtml(i.user || '家族')}</td>
         <td>${escapeHtml(i.memo)}</td>
         <td class="amount">${fmt(i.amount)}</td>
       </tr>`).join('');
     document.getElementById('cc-preview-wrap').innerHTML = `
       <table>
-        <thead><tr><th>日付</th><th>店舗・摘要</th><th style="text-align:right">金額</th></tr></thead>
+        <thead><tr><th>日付</th><th>利用者</th><th>店舗・摘要</th><th style="text-align:right">金額</th></tr></thead>
         <tbody>${rowsHtml}</tbody>
       </table>`;
   }
@@ -1295,6 +1349,7 @@
         date: i.date,
         category: 'クレカ',
         payer,
+        user: i.user || '家族',
         memo: i.memo,
         amount: i.amount,
       });
