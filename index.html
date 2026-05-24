@@ -364,6 +364,19 @@
   .payer-badge.family { background: #dbeafe; color: #1e40af; }
   .payer-badge.k { background: #fef3c7; color: #92400e; }
   .payer-badge.c { background: #fce7f3; color: #9f1239; }
+  .payer-select {
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 2px 4px;
+    font-size: 12px;
+    font-weight: 600;
+    width: auto;
+    cursor: pointer;
+    background: white;
+  }
+  .payer-select.family { background: #dbeafe; color: #1e40af; border-color: #bfdbfe; }
+  .payer-select.k { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+  .payer-select.c { background: #fce7f3; color: #9f1239; border-color: #fbcfe8; }
 
   .personal-grid {
     display: grid;
@@ -767,11 +780,12 @@
       body.innerHTML = monthEntries.map(e => {
         const p = payerOf(e);
         const pcls = p === 'K' ? 'k' : p === 'C' ? 'c' : 'family';
+        const opts = PAYERS.map(v => `<option value="${v}"${v === p ? ' selected' : ''}>${v}</option>`).join('');
         return `
         <tr>
           <td>${escapeHtml(e.date.slice(5).replace('-', '/'))}</td>
           <td>${escapeHtml(e.category)}</td>
-          <td><span class="payer-badge ${pcls}">${escapeHtml(p)}</span></td>
+          <td><select class="payer-select ${pcls}" data-payer-id="${Number(e.id)}">${opts}</select></td>
           <td>${escapeHtml(e.memo || '')}</td>
           <td class="amount ${e.type === 'income' ? 'income' : 'expense'}">${e.type === 'income' ? '+' : '-'}${fmt(e.amount)}</td>
           <td><button class="delete-btn" data-id="${Number(e.id)}" title="削除">×</button></td>
@@ -1062,6 +1076,18 @@
         render();
       }
     }
+  });
+
+  document.getElementById('entries-body').addEventListener('change', (e) => {
+    const id = e.target.dataset.payerId;
+    if (!id) return;
+    const target = entries.find(x => x.id === Number(id));
+    if (!target) return;
+    const newPayer = e.target.value;
+    if (!PAYERS.includes(newPayer)) return;
+    target.payer = newPayer;
+    save();
+    render();
   });
 
   document.getElementById('prev-month').addEventListener('click', () => {
