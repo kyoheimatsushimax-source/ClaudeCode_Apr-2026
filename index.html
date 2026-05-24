@@ -85,7 +85,7 @@
   h2 { font-size: 16px; margin: 0 0 16px; }
   form { display: grid; gap: 10px; grid-template-columns: repeat(2, 1fr); }
   @media (min-width: 700px) {
-    form { grid-template-columns: 120px 120px 140px 1fr 120px auto; align-items: end; }
+    form { grid-template-columns: 120px 120px 140px 90px 1fr 120px auto; align-items: end; }
   }
   label { font-size: 12px; color: var(--muted); display: block; margin-bottom: 4px; }
   input, select, button {
@@ -352,6 +352,51 @@
   .progress-info { flex: 1; }
   .progress-info-title { font-size: 13px; color: var(--muted); margin-bottom: 4px; }
   .progress-info-value { font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums; }
+
+  .payer-badge {
+    display: inline-block;
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    margin-left: 6px;
+  }
+  .payer-badge.family { background: #dbeafe; color: #1e40af; }
+  .payer-badge.k { background: #fef3c7; color: #92400e; }
+  .payer-badge.c { background: #fce7f3; color: #9f1239; }
+
+  .personal-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  @media (max-width: 720px) { .personal-grid { grid-template-columns: 1fr; } }
+  .person-card {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+  }
+  .person-card.k { border-left: 4px solid #f59e0b; }
+  .person-card.c { border-left: 4px solid #ec4899; }
+  .person-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
+  .person-name { font-weight: 700; font-size: 15px; }
+  .person-total { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--expense); }
+  .person-meta { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
+  .person-top-list { display: grid; gap: 4px; }
+  .person-top-list .row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 8px;
+    font-size: 12px;
+    padding: 4px 0;
+  }
+  .person-top-list .row span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .person-top-list .row span:last-child { font-variant-numeric: tabular-nums; color: var(--muted); }
   .tools {
     display: flex;
     gap: 8px;
@@ -454,8 +499,33 @@
   </section>
 
   <section class="card form-card">
-    <h2>🏆 Top支出先 (クレカ)</h2>
+    <h2>🏆 Top支出先 (家族・クレカ)</h2>
     <div class="ranking" id="merchant-ranking"></div>
+  </section>
+
+  <section class="card form-card">
+    <h2>👤 個人別支出 (K / C)</h2>
+    <p style="font-size:12px; color: var(--muted); margin: -8px 0 14px;">
+      下記の金額は家族全体の集計には含まれません。個人立替・個人購入を別管理します。
+    </p>
+    <div class="personal-grid">
+      <div class="person-card k">
+        <div class="person-head">
+          <span class="person-name">K</span>
+          <span class="person-total" id="k-total">¥0</span>
+        </div>
+        <div class="person-meta" id="k-meta">—</div>
+        <div class="person-top-list" id="k-top"></div>
+      </div>
+      <div class="person-card c">
+        <div class="person-head">
+          <span class="person-name">C</span>
+          <span class="person-total" id="c-total">¥0</span>
+        </div>
+        <div class="person-meta" id="c-meta">—</div>
+        <div class="person-top-list" id="c-top"></div>
+      </div>
+    </div>
   </section>
 
   <section class="card form-card">
@@ -476,6 +546,14 @@
       <div>
         <label for="category">カテゴリ</label>
         <select id="category" required></select>
+      </div>
+      <div>
+        <label for="payer">負担</label>
+        <select id="payer">
+          <option value="家族">家族</option>
+          <option value="K">K</option>
+          <option value="C">C</option>
+        </select>
       </div>
       <div>
         <label for="memo">メモ</label>
@@ -532,6 +610,7 @@
           <tr>
             <th>日付</th>
             <th>カテゴリ</th>
+            <th>負担</th>
             <th>メモ</th>
             <th style="text-align:right">金額</th>
             <th></th>
@@ -548,6 +627,14 @@
   <div class="modal wide">
     <h2>クレカ明細プレビュー</h2>
     <div class="modal-stats" id="cc-stats"></div>
+    <div style="display:flex; gap:12px; align-items:center; margin-bottom: 8px;">
+      <label style="margin:0; font-size:13px;">負担者 (一括設定)</label>
+      <select id="cc-payer" style="width:auto;">
+        <option value="家族">家族</option>
+        <option value="K">K</option>
+        <option value="C">C</option>
+      </select>
+    </div>
     <div class="preview-table-wrap" id="cc-preview-wrap"></div>
     <p style="font-size:12px; color: var(--muted); margin: 0 0 12px;">
       黄色の行は既存データと重複しているためスキップされます。
@@ -571,6 +658,9 @@
     expense: ['食費', '日用品', '住居', '光熱費', '通信', '交通', '医療', '娯楽', '衣服', '教育', 'その他'],
   };
   function allCategories(type) { return CATEGORIES[type].concat(CATEGORIES_LEGACY[type]); }
+  const PAYERS = ['家族', 'K', 'C'];
+  function payerOf(e) { return PAYERS.includes(e.payer) ? e.payer : '家族'; }
+  function isFamily(e) { return payerOf(e) === '家族'; }
   const COLORS = ['#2563eb', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899', '#84cc16', '#f97316', '#6366f1', '#64748b'];
 
   let entries = load();
@@ -619,8 +709,8 @@
       .filter(e => e.date.startsWith(monthKey))
       .sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id);
 
-    const monthIncomes = monthEntries.filter(e => e.type === 'income');
-    const monthExpenses = monthEntries.filter(e => e.type === 'expense');
+    const monthIncomes = monthEntries.filter(e => e.type === 'income' && isFamily(e));
+    const monthExpenses = monthEntries.filter(e => e.type === 'expense' && isFamily(e));
     const income = monthIncomes.reduce((s, e) => s + e.amount, 0);
     const expense = monthExpenses.reduce((s, e) => s + e.amount, 0);
     const bal = income - expense;
@@ -628,7 +718,7 @@
 
     const prev = new Date(viewMonth); prev.setMonth(prev.getMonth() - 1);
     const prevKey = ym(prev);
-    const prevEntries = entries.filter(e => e.date.startsWith(prevKey));
+    const prevEntries = entries.filter(e => e.date.startsWith(prevKey) && isFamily(e));
     const prevIncome = prevEntries.filter(e => e.type === 'income').reduce((s, e) => s + e.amount, 0);
     const prevExpense = prevEntries.filter(e => e.type === 'expense').reduce((s, e) => s + e.amount, 0);
     const prevBal = prevIncome - prevExpense;
@@ -661,6 +751,7 @@
 
     renderMerchantRanking(monthExpenses);
     renderIncomeChart(monthIncomes);
+    renderPersonal(monthEntries);
 
     const body = document.getElementById('entries-body');
     const empty = document.getElementById('empty-msg');
@@ -673,15 +764,19 @@
     } else {
       table.style.display = '';
       empty.style.display = 'none';
-      body.innerHTML = monthEntries.map(e => `
+      body.innerHTML = monthEntries.map(e => {
+        const p = payerOf(e);
+        const pcls = p === 'K' ? 'k' : p === 'C' ? 'c' : 'family';
+        return `
         <tr>
           <td>${escapeHtml(e.date.slice(5).replace('-', '/'))}</td>
           <td>${escapeHtml(e.category)}</td>
+          <td><span class="payer-badge ${pcls}">${escapeHtml(p)}</span></td>
           <td>${escapeHtml(e.memo || '')}</td>
           <td class="amount ${e.type === 'income' ? 'income' : 'expense'}">${e.type === 'income' ? '+' : '-'}${fmt(e.amount)}</td>
           <td><button class="delete-btn" data-id="${Number(e.id)}" title="削除">×</button></td>
-        </tr>
-      `).join('');
+        </tr>`;
+      }).join('');
     }
 
     renderChart(monthEntries.filter(e => e.type === 'expense'));
@@ -727,7 +822,7 @@
       const d = new Date(base.getFullYear(), base.getMonth() - i, 1);
       const key = ym(d);
       labels.push((d.getMonth() + 1) + '月');
-      const monthEntries = entries.filter(e => e.date.startsWith(key));
+      const monthEntries = entries.filter(e => e.date.startsWith(key) && isFamily(e));
       const inc = monthEntries.filter(e => e.type === 'income').reduce((s, e) => s + e.amount, 0);
       const exp = monthEntries.filter(e => e.type === 'expense').reduce((s, e) => s + e.amount, 0);
       incomes.push(inc);
@@ -780,7 +875,8 @@
     const category = allowedCats.includes(e.category) ? e.category : CATEGORIES[type][0];
     const memo = typeof e.memo === 'string' ? e.memo.slice(0, 200) : '';
     const id = Number.isFinite(Number(e.id)) ? Number(e.id) : Date.now() + Math.random();
-    return { id, type, date, category, memo, amount: Math.round(amount) };
+    const payer = PAYERS.includes(e.payer) ? e.payer : '家族';
+    return { id, type, date, category, memo, amount: Math.round(amount), payer };
   }
 
   function sanitizeBudgets(b) {
@@ -840,6 +936,28 @@
         <div class="ranking-name">${escapeHtml(name)}<small>${info.count}回</small></div>
         <div class="ranking-amount">${fmt(info.total)}</div>
       </div>`).join('');
+  }
+
+  function renderPersonal(monthEntries) {
+    for (const person of ['K', 'C']) {
+      const items = monthEntries.filter(e => e.type === 'expense' && payerOf(e) === person);
+      const total = items.reduce((s, e) => s + e.amount, 0);
+      const key = person.toLowerCase();
+      document.getElementById(key + '-total').textContent = fmt(total);
+      const ccCount = items.filter(e => e.category === 'クレカ').length;
+      document.getElementById(key + '-meta').textContent =
+        items.length === 0 ? 'この月の登録はまだありません' : `${items.length}件 (クレカ: ${ccCount}件)`;
+      const byKey = {};
+      items.forEach(e => {
+        const k = e.memo || e.category;
+        if (!byKey[k]) byKey[k] = 0;
+        byKey[k] += e.amount;
+      });
+      const top = Object.entries(byKey).sort((a, b) => b[1] - a[1]).slice(0, 5);
+      document.getElementById(key + '-top').innerHTML = top.map(([n, v]) =>
+        `<div class="row"><span>${escapeHtml(n)}</span><span>${fmt(v)}</span></div>`
+      ).join('');
+    }
   }
 
   function renderIncomeChart(monthIncomes) {
@@ -923,6 +1041,7 @@
       type: currentType,
       date: document.getElementById('date').value,
       category: document.getElementById('category').value,
+      payer: document.getElementById('payer').value,
       memo: document.getElementById('memo').value.trim(),
       amount: parseInt(document.getElementById('amount').value, 10),
     };
@@ -930,6 +1049,7 @@
     save();
     document.getElementById('amount').value = '';
     document.getElementById('memo').value = '';
+    document.getElementById('payer').value = '家族';
     render();
   });
 
@@ -1090,9 +1210,13 @@
     return { ok: true, items: out };
   }
 
-  function isDuplicate(item) {
+  function isDuplicate(item, payer) {
     return entries.some(e =>
-      e.type === 'expense' && e.date === item.date && e.amount === item.amount && (e.memo || '') === (item.memo || '')
+      e.type === 'expense' &&
+      e.date === item.date &&
+      e.amount === item.amount &&
+      (e.memo || '') === (item.memo || '') &&
+      payerOf(e) === payer
     );
   }
 
@@ -1100,7 +1224,15 @@
 
   function showCcPreview(items) {
     pendingItems = items;
-    const dupFlags = items.map(isDuplicate);
+    document.getElementById('cc-payer').value = '家族';
+    refreshCcPreview();
+    document.getElementById('cc-preview-overlay').style.display = 'flex';
+  }
+
+  function refreshCcPreview() {
+    const items = pendingItems;
+    const payer = document.getElementById('cc-payer').value;
+    const dupFlags = items.map(i => isDuplicate(i, payer));
     const newCount = dupFlags.filter(f => !f).length;
     const dupCount = dupFlags.filter(f => f).length;
     const total = items.reduce((s, i, idx) => dupFlags[idx] ? s : s + i.amount, 0);
@@ -1119,7 +1251,6 @@
         <thead><tr><th>日付</th><th>店舗・摘要</th><th style="text-align:right">金額</th></tr></thead>
         <tbody>${rowsHtml}</tbody>
       </table>`;
-    document.getElementById('cc-preview-overlay').style.display = 'flex';
   }
 
   function hideCcPreview() {
@@ -1128,14 +1259,16 @@
   }
 
   document.getElementById('cc-confirm').addEventListener('click', () => {
+    const payer = document.getElementById('cc-payer').value;
     const added = [];
     for (const i of pendingItems) {
-      if (isDuplicate(i)) continue;
+      if (isDuplicate(i, payer)) continue;
       added.push({
         id: Date.now() + Math.random(),
         type: 'expense',
         date: i.date,
         category: 'クレカ',
+        payer,
         memo: i.memo,
         amount: i.amount,
       });
@@ -1144,9 +1277,10 @@
     save();
     hideCcPreview();
     render();
-    alert(`${added.length}件を登録しました`);
+    alert(`${added.length}件を「${payer}」負担として登録しました`);
   });
   document.getElementById('cc-cancel').addEventListener('click', hideCcPreview);
+  document.getElementById('cc-payer').addEventListener('change', refreshCcPreview);
 
   function parseCSV(text, sep) {
     const rows = [];
