@@ -654,13 +654,17 @@
   <div class="modal wide">
     <h2>クレカ明細プレビュー</h2>
     <div class="modal-stats" id="cc-stats"></div>
-    <div style="display:flex; gap:12px; align-items:center; margin-bottom: 8px;">
+    <div style="display:flex; gap:12px; align-items:center; margin-bottom: 8px; flex-wrap:wrap;">
       <label style="margin:0; font-size:13px;">負担者 (一括設定)</label>
       <select id="cc-payer" style="width:auto;">
         <option value="家族">家族</option>
         <option value="K">K</option>
         <option value="C">C</option>
       </select>
+      <span style="font-size:13px; color: var(--muted);">|</span>
+      <span style="font-size:13px;">利用者を一括で:</span>
+      <button type="button" id="cc-all-k" style="width:auto; padding:4px 10px;">全てK</button>
+      <button type="button" id="cc-all-c" style="width:auto; padding:4px 10px;">全てC</button>
     </div>
     <div class="preview-table-wrap" id="cc-preview-wrap"></div>
     <p style="font-size:12px; color: var(--muted); margin: 0 0 12px;">
@@ -694,13 +698,17 @@
   function isFamily(e) { return payerOf(e) === '家族'; }
 
   function matchCardOrName(s) {
-    const re = /[*＊][*＊\-－\s]{0,30}(\d{4})\b/g;
+    const re = /[*＊×ＸXｘx◯〇○●][*＊×ＸXｘx◯〇○●\-－\s]{0,30}(\d{4})\b/g;
     let m;
     while ((m = re.exec(s)) !== null) {
       if (CARD_USERS[m[1]]) return CARD_USERS[m[1]];
     }
     for (const name in NAME_USERS) {
       if (s.includes(name)) return NAME_USERS[name];
+    }
+    for (const last4 in CARD_USERS) {
+      const re2 = new RegExp('(^|[^\\d])' + last4 + '($|[^\\d])');
+      if (re2.test(s)) return CARD_USERS[last4];
     }
     return null;
   }
@@ -1293,20 +1301,19 @@
   function extractFromRows(rows) {
     const cols = detectColumns(rows);
     if (!cols) return { ok: false, error: '日付列・金額列が見つかりませんでした。ヘッダー行 (利用日 / 金額) を確認してください。' };
-    let fileUser = null;
-    for (let r = 0; r < Math.min(rows.length, cols.headerRow + 1); r++) {
-      const u = detectCardUser(rows[r] || []);
-      if (u) { fileUser = u; break; }
-    }
+    let currentUser = null;
     const out = [];
-    for (let r = cols.headerRow + 1; r < rows.length; r++) {
+    for (let r = 0; r < rows.length; r++) {
       const row = rows[r] || [];
+      const cardOnRow = detectCardUser(row);
+      if (cardOnRow) currentUser = cardOnRow;
+      if (r <= cols.headerRow) continue;
       const date = parseDateCell(row[cols.date]);
       const amount = parseAmountCell(row[cols.amount]);
       if (!date || !amount) continue;
       const desc = cols.desc >= 0 ? String(row[cols.desc] || '').trim().slice(0, 200) : '';
-      const rowUser = detectCardUser(row) || fileUser || 'K';
-      out.push({ date, amount, memo: desc, user: rowUser });
+      const colA = String(row[0] == null ? '' : row[0]).trim().slice(0, 60);
+      out.push({ date, amount, memo: desc, user: currentUser || 'K', colA });
     }
     return { ok: true, items: out };
   }
@@ -1343,16 +1350,21 @@
       `<span>新規: <b>${newCount}件</b></span>` +
       `<span>重複(スキップ): <b>${dupCount}件</b></span>` +
       `<span>登録金額合計: <b>${fmt(total)}</b></span>`;
-    const rowsHtml = items.map((i, idx) => `
+    const rowsHtml = items.map((i, idx) => {
+      const u = USERS.includes(i.user) ? i.user : 'K';
+      const opts = USERS.map(v => `<option value="${v}"${v === u ? ' selected' : ''}>${v}</option>`).join('');
+      return `
       <tr class="${dupFlags[idx] ? 'dup' : ''}">
         <td>${escapeHtml(i.date)}</td>
-        <td>${escapeHtml(i.user || '家族')}</td>
+        <td><select class="user-select ${u === 'K' ? 'k' : 'c'}" data-preview-idx="${idx}">${opts}</select></td>
+        <td style="font-size:11px;color:var(--muted)">${escapeHtml(i.colA || '')}</td>
         <td>${escapeHtml(i.memo)}</td>
         <td class="amount">${fmt(i.amount)}</td>
-      </tr>`).join('');
+      </tr>`;
+    }).join('');
     document.getElementById('cc-preview-wrap').innerHTML = `
       <table>
-        <thead><tr><th>日付</th><th>利用者</th><th>店舗・摘要</th><th style="text-align:right">金額</th></tr></thead>
+        <thead><tr><th>日付</th><th>利用者</th><th>A列</th><th>店舗・摘要</th><th style="text-align:right">金額</th></tr></thead>
         <tbody>${rowsHtml}</tbody>
       </table>`;
   }
@@ -1386,6 +1398,20 @@
   });
   document.getElementById('cc-cancel').addEventListener('click', hideCcPreview);
   document.getElementById('cc-payer').addEventListener('change', refreshCcPreview);
+  document.getElementById('cc-preview-wrap').addEventListener('change', (e) => {
+    const idx = e.target.dataset.previewIdx;
+    if (idx == null) return;
+    pendingItems[Number(idx)].user = e.target.value;
+    refreshCcPreview();
+  });
+  document.getElementById('cc-all-k').addEventListener('click', () => {
+    pendingItems.forEach(i => i.user = 'K');
+    refreshCcPreview();
+  });
+  document.getElementById('cc-all-c').addEventListener('click', () => {
+    pendingItems.forEach(i => i.user = 'C');
+    refreshCcPreview();
+  });
 
   function parseCSV(text, sep) {
     const rows = [];
