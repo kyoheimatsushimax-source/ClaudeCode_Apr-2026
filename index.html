@@ -717,6 +717,19 @@
     catch { return []; }
   }
   function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(entries)); }
+  function migrateUsers() {
+    let changed = false;
+    for (const e of entries) {
+      if (e.category === 'クレカ' && !USERS.includes(e.user)) {
+        e.user = 'K';
+        changed = true;
+      } else if (e.category !== 'クレカ' && e.user !== undefined && !USERS.includes(e.user)) {
+        delete e.user;
+        changed = true;
+      }
+    }
+    if (changed) save();
+  }
   function loadBudgets() {
     try { return JSON.parse(localStorage.getItem(BUDGET_KEY)) || {}; }
     catch { return {}; }
@@ -807,10 +820,10 @@
       body.innerHTML = monthEntries.map(e => {
         const p = payerOf(e);
         const pcls = p === 'K' ? 'k' : p === 'C' ? 'c' : 'family';
-        const u = userOf(e);
         const pOpts = PAYERS.map(v => `<option value="${v}"${v === p ? ' selected' : ''}>${v}</option>`).join('');
         let userCell;
-        if (u) {
+        if (e.category === 'クレカ') {
+          const u = USERS.includes(e.user) ? e.user : 'K';
           const ucls = u === 'K' ? 'k' : 'c';
           const uOpts = USERS.map(v => `<option value="${v}"${v === u ? ' selected' : ''}>${v}</option>`).join('');
           userCell = `<select class="user-select ${ucls}" data-user-id="${Number(e.id)}">${uOpts}</select>`;
@@ -1445,6 +1458,7 @@
     if (e.dataTransfer.files.length) readCcFile(e.dataTransfer.files[0]);
   });
 
+  migrateUsers();
   document.getElementById('date').value = new Date().toISOString().slice(0, 10);
   setType('income');
   refreshBudgetCategorySelect();
