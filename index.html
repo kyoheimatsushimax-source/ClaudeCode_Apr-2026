@@ -85,7 +85,7 @@
   h2 { font-size: 16px; margin: 0 0 16px; }
   form { display: grid; gap: 10px; grid-template-columns: repeat(2, 1fr); }
   @media (min-width: 700px) {
-    form { grid-template-columns: 120px 120px 90px 140px 90px 1fr 120px auto; align-items: end; }
+    form { grid-template-columns: 120px 120px 140px 90px 1fr 120px auto; align-items: end; }
   }
   label { font-size: 12px; color: var(--muted); display: block; margin-bottom: 4px; }
   input, select, button {
@@ -570,14 +570,6 @@
         <input type="date" id="date" required />
       </div>
       <div>
-        <label for="user">利用者</label>
-        <select id="user">
-          <option value="家族">家族</option>
-          <option value="K">K</option>
-          <option value="C">C</option>
-        </select>
-      </div>
-      <div>
         <label for="category">カテゴリ</label>
         <select id="category" required></select>
       </div>
@@ -694,10 +686,10 @@
   };
   function allCategories(type) { return CATEGORIES[type].concat(CATEGORIES_LEGACY[type]); }
   const PAYERS = ['家族', 'K', 'C'];
-  const USERS = ['家族', 'K', 'C'];
+  const USERS = ['K', 'C'];
   const CARD_USERS = { '1047': 'K', '2011': 'C' };
   function payerOf(e) { return PAYERS.includes(e.payer) ? e.payer : '家族'; }
-  function userOf(e) { return USERS.includes(e.user) ? e.user : '家族'; }
+  function userOf(e) { return USERS.includes(e.user) ? e.user : null; }
   function isFamily(e) { return payerOf(e) === '家族'; }
 
   function detectCardUser(cells) {
@@ -816,13 +808,19 @@
         const p = payerOf(e);
         const pcls = p === 'K' ? 'k' : p === 'C' ? 'c' : 'family';
         const u = userOf(e);
-        const ucls = u === 'K' ? 'k' : u === 'C' ? 'c' : 'family';
         const pOpts = PAYERS.map(v => `<option value="${v}"${v === p ? ' selected' : ''}>${v}</option>`).join('');
-        const uOpts = USERS.map(v => `<option value="${v}"${v === u ? ' selected' : ''}>${v}</option>`).join('');
+        let userCell;
+        if (u) {
+          const ucls = u === 'K' ? 'k' : 'c';
+          const uOpts = USERS.map(v => `<option value="${v}"${v === u ? ' selected' : ''}>${v}</option>`).join('');
+          userCell = `<select class="user-select ${ucls}" data-user-id="${Number(e.id)}">${uOpts}</select>`;
+        } else {
+          userCell = '<span style="color:var(--muted);font-size:12px;">—</span>';
+        }
         return `
         <tr>
           <td>${escapeHtml(e.date.slice(5).replace('-', '/'))}</td>
-          <td><select class="user-select ${ucls}" data-user-id="${Number(e.id)}">${uOpts}</select></td>
+          <td>${userCell}</td>
           <td>${escapeHtml(e.category)}</td>
           <td><select class="payer-select ${pcls}" data-payer-id="${Number(e.id)}">${pOpts}</select></td>
           <td>${escapeHtml(e.memo || '')}</td>
@@ -929,8 +927,9 @@
     const memo = typeof e.memo === 'string' ? e.memo.slice(0, 200) : '';
     const id = Number.isFinite(Number(e.id)) ? Number(e.id) : Date.now() + Math.random();
     const payer = PAYERS.includes(e.payer) ? e.payer : '家族';
-    const user = USERS.includes(e.user) ? e.user : '家族';
-    return { id, type, date, category, memo, amount: Math.round(amount), payer, user };
+    const out = { id, type, date, category, memo, amount: Math.round(amount), payer };
+    if (USERS.includes(e.user)) out.user = e.user;
+    return out;
   }
 
   function sanitizeBudgets(b) {
@@ -1096,7 +1095,6 @@
       date: document.getElementById('date').value,
       category: document.getElementById('category').value,
       payer: document.getElementById('payer').value,
-      user: document.getElementById('user').value,
       memo: document.getElementById('memo').value.trim(),
       amount: parseInt(document.getElementById('amount').value, 10),
     };
@@ -1105,7 +1103,6 @@
     document.getElementById('amount').value = '';
     document.getElementById('memo').value = '';
     document.getElementById('payer').value = '家族';
-    document.getElementById('user').value = '家族';
     render();
   });
 
@@ -1281,14 +1278,14 @@
       const amount = parseAmountCell(row[cols.amount]);
       if (!date || !amount) continue;
       const desc = cols.desc >= 0 ? String(row[cols.desc] || '').trim().slice(0, 200) : '';
-      const rowUser = detectCardUser(row) || fileUser || '家族';
+      const rowUser = detectCardUser(row) || fileUser || 'K';
       out.push({ date, amount, memo: desc, user: rowUser });
     }
     return { ok: true, items: out };
   }
 
   function isDuplicate(item, payer) {
-    const itemUser = item.user || '家族';
+    const itemUser = USERS.includes(item.user) ? item.user : null;
     return entries.some(e =>
       e.type === 'expense' &&
       e.date === item.date &&
@@ -1349,7 +1346,7 @@
         date: i.date,
         category: 'クレカ',
         payer,
-        user: i.user || '家族',
+        user: USERS.includes(i.user) ? i.user : 'K',
         memo: i.memo,
         amount: i.amount,
       });
