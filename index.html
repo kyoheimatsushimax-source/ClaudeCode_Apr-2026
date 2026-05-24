@@ -688,16 +688,30 @@
   const PAYERS = ['家族', 'K', 'C'];
   const USERS = ['K', 'C'];
   const CARD_USERS = { '1047': 'K', '2011': 'C' };
+  const NAME_USERS = { '恭平': 'K', '智姫': 'C' };
   function payerOf(e) { return PAYERS.includes(e.payer) ? e.payer : '家族'; }
   function userOf(e) { return USERS.includes(e.user) ? e.user : null; }
   function isFamily(e) { return payerOf(e) === '家族'; }
 
-  function detectCardUser(cells) {
-    const text = cells.map(c => String(c == null ? '' : c)).join(' | ');
+  function matchCardOrName(s) {
     const re = /[*＊][*＊\-－\s]{0,30}(\d{4})\b/g;
     let m;
-    while ((m = re.exec(text)) !== null) {
+    while ((m = re.exec(s)) !== null) {
       if (CARD_USERS[m[1]]) return CARD_USERS[m[1]];
+    }
+    for (const name in NAME_USERS) {
+      if (s.includes(name)) return NAME_USERS[name];
+    }
+    return null;
+  }
+
+  function detectCardUser(cells) {
+    const colA = String(cells[0] == null ? '' : cells[0]);
+    const u = matchCardOrName(colA);
+    if (u) return u;
+    for (let i = 1; i < cells.length; i++) {
+      const u2 = matchCardOrName(String(cells[i] == null ? '' : cells[i]));
+      if (u2) return u2;
     }
     return null;
   }
