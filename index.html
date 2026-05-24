@@ -3,8 +3,13 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'unsafe-inline'; img-src data:; connect-src 'none'; base-uri 'none'; form-action 'none';" />
 <title>かんたん家計簿</title>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script
+  src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"
+  integrity="sha384-rRoXxn2yHlrZYB587Ki9RO1tONhLdM6XfORg7Rw4uwH4/Fh/5nP7IUX91bkaKUgs"
+  crossorigin="anonymous"
+></script>
 <style>
   :root {
     --bg: #f5f7fa;
@@ -396,11 +401,11 @@
       empty.style.display = 'none';
       body.innerHTML = monthEntries.map(e => `
         <tr>
-          <td>${e.date.slice(5).replace('-', '/')}</td>
-          <td>${e.category}</td>
+          <td>${escapeHtml(e.date.slice(5).replace('-', '/'))}</td>
+          <td>${escapeHtml(e.category)}</td>
           <td>${escapeHtml(e.memo || '')}</td>
-          <td class="amount ${e.type}">${e.type === 'income' ? '+' : '-'}${fmt(e.amount)}</td>
-          <td><button class="delete-btn" data-id="${e.id}" title="削除">×</button></td>
+          <td class="amount ${e.type === 'income' ? 'income' : 'expense'}">${e.type === 'income' ? '+' : '-'}${fmt(e.amount)}</td>
+          <td><button class="delete-btn" data-id="${Number(e.id)}" title="削除">×</button></td>
         </tr>
       `).join('');
     }
@@ -426,10 +431,11 @@
       const pct = budget > 0 ? (used / budget) * 100 : 0;
       const cls = pct >= 100 ? 'over' : pct >= 80 ? 'warn' : '';
       const width = Math.min(pct, 100);
+      const safeCat = escapeHtml(cat);
       return `
         <div class="budget-row">
           <div class="budget-head">
-            <span class="budget-cat">${cat} <button class="delete-btn" data-budget="${cat}" title="予算を削除" style="padding:0 4px;font-size:14px;">×</button></span>
+            <span class="budget-cat">${safeCat} <button class="delete-btn" data-budget="${safeCat}" title="予算を削除" style="padding:0 4px;font-size:14px;">×</button></span>
             <span class="budget-nums">${fmt(used)} / ${fmt(budget)}<span class="pct">${pct.toFixed(0)}%</span></span>
           </div>
           <div class="bar-bg"><div class="bar-fill ${cls}" style="width:${width}%"></div></div>
@@ -487,7 +493,30 @@
   }
 
   function escapeHtml(s) {
-    return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  function sanitizeEntry(e) {
+    if (!e || typeof e !== 'object') return null;
+    const type = e.type === 'income' ? 'income' : 'expense';
+    const date = typeof e.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(e.date) ? e.date : null;
+    const amount = Number(e.amount);
+    if (!date || !Number.isFinite(amount) || amount <= 0) return null;
+    const allowedCats = CATEGORIES[type];
+    const category = allowedCats.includes(e.category) ? e.category : 'その他';
+    const memo = typeof e.memo === 'string' ? e.memo.slice(0, 200) : '';
+    const id = Number.isFinite(Number(e.id)) ? Number(e.id) : Date.now() + Math.random();
+    return { id, type, date, category, memo, amount: Math.round(amount) };
+  }
+
+  function sanitizeBudgets(b) {
+    if (!b || typeof b !== 'object') return {};
+    const out = {};
+    for (const cat of CATEGORIES.expense) {
+      const v = Number(b[cat]);
+      if (Number.isFinite(v) && v > 0) out[cat] = Math.round(v);
+    }
+    return out;
   }
 
   function renderChart(expenseEntries) {
@@ -587,15 +616,17 @@
     reader.onload = (ev) => {
       try {
         const data = JSON.parse(ev.target.result);
-        const importedEntries = Array.isArray(data) ? data : data.entries;
-        const importedBudgets = Array.isArray(data) ? null : data.budgets;
-        if (!Array.isArray(importedEntries)) throw new Error('形式が正しくありません');
-        if (confirm(`${importedEntries.length}件のデータを読み込みます。既存データに追加しますか? (キャンセルで上書き)`)) {
-          entries = entries.concat(importedEntries);
-          if (importedBudgets) budgets = Object.assign({}, budgets, importedBudgets);
+        const rawEntries = Array.isArray(data) ? data : data.entries;
+        const rawBudgets = Array.isArray(data) ? null : data.budgets;
+        if (!Array.isArray(rawEntries)) throw new Error('形式が正しくありません');
+        const cleanEntries = rawEntries.map(sanitizeEntry).filter(Boolean);
+        const cleanBudgets = rawBudgets ? sanitizeBudgets(rawBudgets) : null;
+        if (confirm(`${cleanEntries.length}件のデータを読み込みます。既存データに追加しますか? (キャンセルで上書き)`)) {
+          entries = entries.concat(cleanEntries);
+          if (cleanBudgets) budgets = Object.assign({}, budgets, cleanBudgets);
         } else {
-          entries = importedEntries;
-          if (importedBudgets) budgets = importedBudgets;
+          entries = cleanEntries;
+          if (cleanBudgets) budgets = cleanBudgets;
         }
         save();
         saveBudgets();
