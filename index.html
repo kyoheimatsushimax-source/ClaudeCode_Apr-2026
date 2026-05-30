@@ -515,7 +515,7 @@
   .account-row input[type="number"] { font-variant-numeric: tabular-nums; text-align: right; }
   .account-add {
     display: grid;
-    grid-template-columns: 100px 1fr 140px auto;
+    grid-template-columns: 100px 100px 1fr 140px auto;
     gap: 8px;
     margin-top: 12px;
     align-items: end;
@@ -525,6 +525,30 @@
     .account-row { grid-template-columns: 1fr 100px 30px; }
     .account-row .meta-col { display: none; }
   }
+  .account-row {
+    grid-template-columns: 1fr 90px 140px 100px 30px !important;
+  }
+  @media (max-width: 720px) {
+    .account-row { grid-template-columns: 1fr 100px 30px !important; }
+  }
+  .currency-badge {
+    display: inline-block;
+    padding: 1px 6px;
+    border-radius: 4px;
+    background: var(--bg);
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .fx-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    align-items: end;
+  }
+  @media (max-width: 720px) { .fx-row { grid-template-columns: 1fr; } }
+  .fx-cell label { font-size: 12px; color: var(--muted); display: block; margin-bottom: 4px; }
+  .jpy-eq { color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
   .tools {
     display: flex;
     gap: 8px;
@@ -826,6 +850,25 @@
   </section>
 
   <section class="card form-card">
+    <h2>💱 為替レート <span class="badge" id="fx-month">—</span></h2>
+    <p style="font-size:12px; color: var(--muted); margin: -8px 0 14px;">
+      月初・月末などのタイミングで手入力してください。空欄なら直近月のレートを引き継ぎます。
+    </p>
+    <div class="fx-row">
+      <div class="fx-cell">
+        <label for="fx-usd">1 USD = ◯円</label>
+        <input type="number" id="fx-usd" min="0" step="0.01" placeholder="例: 150.50" />
+        <div class="jpy-eq" id="fx-usd-prev"></div>
+      </div>
+      <div class="fx-cell">
+        <label for="fx-sgd">1 SGD = ◯円</label>
+        <input type="number" id="fx-sgd" min="0" step="0.01" placeholder="例: 112.30" />
+        <div class="jpy-eq" id="fx-sgd-prev"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="card form-card">
     <h2>💼 口座一覧</h2>
     <div id="accounts-list"></div>
     <div class="account-add">
@@ -838,17 +881,25 @@
         </select>
       </div>
       <div>
+        <label for="acc-currency">通貨</label>
+        <select id="acc-currency">
+          <option value="JPY">JPY</option>
+          <option value="USD">USD</option>
+          <option value="SGD">SGD</option>
+        </select>
+      </div>
+      <div>
         <label for="acc-name">口座名</label>
         <input type="text" id="acc-name" placeholder="例: 楽天銀行 / SBI証券 / 住宅ローン" />
       </div>
       <div>
-        <label for="acc-balance">今月の残高 (円)</label>
-        <input type="number" id="acc-balance" min="0" step="1" placeholder="0" />
+        <label for="acc-balance">今月の残高</label>
+        <input type="number" id="acc-balance" min="0" step="0.01" placeholder="0" />
       </div>
       <button type="button" class="primary" id="acc-add-btn" style="width:auto;">追加</button>
     </div>
     <p style="font-size:12px; color: var(--muted); margin-top: 12px;">
-      負債は正の数で入力してください (純資産計算時にマイナス扱いになります)。
+      負債は正の数で入力してください (純資産計算時にマイナス扱いになります)。外貨は表示月の為替レートで自動的に円換算します。
     </p>
   </section>
 </main>
@@ -1717,7 +1768,8 @@
   });
 
   const ASSETS_KEY = 'kakeibo.assets.v1';
-  let assets = { accounts: [], snapshots: {} };
+  const CURRENCIES = ['JPY', 'USD', 'SGD'];
+  let assets = { accounts: [], snapshots: {}, rates: {} };
   let networthChart = null;
   let flowChart = null;
   let activeTab = 'dashboard';
@@ -1727,10 +1779,40 @@
       const raw = JSON.parse(localStorage.getItem(ASSETS_KEY));
       if (raw && Array.isArray(raw.accounts) && typeof raw.snapshots === 'object') {
         assets = raw;
+        if (!assets.rates || typeof assets.rates !== 'object') assets.rates = {};
+        for (const a of assets.accounts) if (!CURRENCIES.includes(a.currency)) a.currency = 'JPY';
       }
     } catch {}
   }
   function saveAssets() { localStorage.setItem(ASSETS_KEY, JSON.stringify(assets)); }
+
+  function getRate(currency, monthKey) {
+    if (currency === 'JPY') return 1;
+    const explicit = assets.rates[monthKey] && assets.rates[monthKey][currency];
+    if (Number.isFinite(explicit) && explicit > 0) return explicit;
+    const months = Object.keys(assets.rates).filter(k => k <= monthKey).sort();
+    for (let i = months.length - 1; i >= 0; i--) {
+      const r = assets.rates[months[i]] && assets.rates[months[i]][currency];
+      if (Number.isFinite(r) && r > 0) return r;
+    }
+    return null;
+  }
+  function setRate(currency, monthKey, value) {
+    if (!assets.rates[monthKey]) assets.rates[monthKey] = {};
+    if (Number.isFinite(value) && value > 0) assets.rates[monthKey][currency] = value;
+    else delete assets.rates[monthKey][currency];
+    saveAssets();
+  }
+  function toJPY(amount, currency, monthKey) {
+    const r = getRate(currency, monthKey);
+    if (r === null) return null;
+    return amount * r;
+  }
+  function fmtForeign(amount, currency) {
+    const rounded = Math.round(amount * 100) / 100;
+    if (currency === 'JPY') return '¥' + Math.round(rounded).toLocaleString('ja-JP');
+    return currency + ' ' + rounded.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
 
   function balanceFor(accountId, monthKey) {
     const snap = assets.snapshots[monthKey];
@@ -1745,15 +1827,16 @@
 
   function setBalance(accountId, monthKey, value) {
     if (!assets.snapshots[monthKey]) assets.snapshots[monthKey] = {};
-    assets.snapshots[monthKey][accountId] = Math.round(value);
+    assets.snapshots[monthKey][accountId] = Math.round(value * 100) / 100;
     saveAssets();
   }
 
-  function addAccount(type, name, balance) {
+  function addAccount(type, name, currency, balance) {
     if (!['預金', '投資', '負債'].includes(type)) return;
+    if (!CURRENCIES.includes(currency)) currency = 'JPY';
     if (!name || !name.trim()) return;
     const id = 'a' + Date.now() + Math.floor(Math.random() * 1000);
-    assets.accounts.push({ id, type, name: name.trim() });
+    assets.accounts.push({ id, type, name: name.trim(), currency });
     if (Number.isFinite(balance) && balance >= 0) setBalance(id, ym(viewMonth), balance);
     saveAssets();
   }
@@ -1767,8 +1850,29 @@
   function renderStock() {
     const monthKey = ym(viewMonth);
     document.getElementById('stock-month').textContent = monthLabel(viewMonth) + ' 時点';
+    document.getElementById('fx-month').textContent = monthLabel(viewMonth);
+
+    const usdRate = getRate('USD', monthKey);
+    const sgdRate = getRate('SGD', monthKey);
+    const usdInput = document.getElementById('fx-usd');
+    const sgdInput = document.getElementById('fx-sgd');
+    const explicitUsd = assets.rates[monthKey] && assets.rates[monthKey]['USD'];
+    const explicitSgd = assets.rates[monthKey] && assets.rates[monthKey]['SGD'];
+    if (document.activeElement !== usdInput) usdInput.value = Number.isFinite(explicitUsd) ? explicitUsd : '';
+    if (document.activeElement !== sgdInput) sgdInput.value = Number.isFinite(explicitSgd) ? explicitSgd : '';
+    document.getElementById('fx-usd-prev').textContent =
+      !explicitUsd && usdRate ? `（直近月のレート ${usdRate} を使用中）` : '';
+    document.getElementById('fx-sgd-prev').textContent =
+      !explicitSgd && sgdRate ? `（直近月のレート ${sgdRate} を使用中）` : '';
+
     const totals = { '預金': 0, '投資': 0, '負債': 0 };
-    for (const a of assets.accounts) totals[a.type] += balanceFor(a.id, monthKey);
+    let missingRate = false;
+    for (const a of assets.accounts) {
+      const raw = balanceFor(a.id, monthKey);
+      const jpy = toJPY(raw, a.currency, monthKey);
+      if (jpy === null) { missingRate = true; continue; }
+      totals[a.type] += jpy;
+    }
     document.getElementById('stock-deposit').textContent = fmt(totals['預金']);
     document.getElementById('stock-invest').textContent = fmt(totals['投資']);
     document.getElementById('stock-debt').textContent = fmt(totals['負債']);
@@ -1780,6 +1884,9 @@
     for (const a of assets.accounts) groups[a.type].push(a);
     const listEl = document.getElementById('accounts-list');
     let html = '';
+    if (missingRate) {
+      html += `<div style="color:var(--expense);font-size:12px;padding:8px 0;">⚠ 外貨レートが未設定の通貨があります。上の為替レート欄に入力してください。</div>`;
+    }
     for (const type of ['預金', '投資', '負債']) {
       const list = groups[type];
       html += `<div class="accounts-group">
@@ -1789,10 +1896,13 @@
       } else {
         for (const a of list) {
           const bal = balanceFor(a.id, monthKey);
+          const jpy = toJPY(bal, a.currency, monthKey);
+          const jpyLabel = a.currency === 'JPY' ? '' : (jpy === null ? '(レート未設定)' : '= ' + fmt(jpy));
           html += `<div class="account-row">
             <span class="name">${escapeHtml(a.name)}</span>
-            <input type="number" min="0" step="1" value="${bal}" data-acc-balance="${a.id}" />
-            <span class="meta-col" style="font-size:11px;color:var(--muted);">${escapeHtml(type)}</span>
+            <span class="currency-badge">${a.currency}</span>
+            <input type="number" min="0" step="0.01" value="${bal}" data-acc-balance="${a.id}" />
+            <span class="meta-col jpy-eq">${jpyLabel}</span>
             <button type="button" class="delete-btn" data-acc-delete="${a.id}" title="削除">×</button>
           </div>`;
         }
@@ -1815,7 +1925,9 @@
       let net = 0;
       for (const a of assets.accounts) {
         const b = balanceFor(a.id, k);
-        net += a.type === '負債' ? -b : b;
+        const jpy = toJPY(b, a.currency, k);
+        if (jpy === null) continue;
+        net += a.type === '負債' ? -jpy : jpy;
       }
       data.push(net);
     }
@@ -1894,10 +2006,11 @@
 
     document.getElementById('acc-add-btn').addEventListener('click', () => {
       const type = document.getElementById('acc-type').value;
+      const currency = document.getElementById('acc-currency').value;
       const name = document.getElementById('acc-name').value;
-      const balance = parseInt(document.getElementById('acc-balance').value || '0', 10);
+      const balance = parseFloat(document.getElementById('acc-balance').value || '0');
       if (!name.trim()) { alert('口座名を入力してください'); return; }
-      addAccount(type, name, balance);
+      addAccount(type, name, currency, balance);
       document.getElementById('acc-name').value = '';
       document.getElementById('acc-balance').value = '';
       renderStock();
@@ -1906,11 +2019,19 @@
     document.getElementById('accounts-list').addEventListener('change', (e) => {
       const id = e.target.dataset.accBalance;
       if (!id) return;
-      const v = parseInt(e.target.value || '0', 10);
+      const v = parseFloat(e.target.value || '0');
       if (!Number.isFinite(v)) return;
       setBalance(id, ym(viewMonth), Math.max(0, v));
       renderStock();
     });
+
+    const onFxChange = (cur) => (e) => {
+      const v = parseFloat(e.target.value || '');
+      setRate(cur, ym(viewMonth), v);
+      renderStock();
+    };
+    document.getElementById('fx-usd').addEventListener('change', onFxChange('USD'));
+    document.getElementById('fx-sgd').addEventListener('change', onFxChange('SGD'));
 
     document.getElementById('accounts-list').addEventListener('click', (e) => {
       const id = e.target.dataset.accDelete;
