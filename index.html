@@ -544,6 +544,41 @@
   .account-row.dragging { opacity: 0.4; }
   .account-row.drop-above { box-shadow: inset 0 2px 0 0 var(--primary); }
   .account-row.drop-below { box-shadow: inset 0 -2px 0 0 var(--primary); }
+
+  .flow-item-list { margin-top: 8px; }
+  .flow-group-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 8px 4px;
+    margin-top: 16px;
+    border-bottom: 2px solid var(--border);
+    font-weight: 700;
+    font-size: 14px;
+  }
+  .flow-group-head .total { color: var(--muted); font-weight: 600; font-size: 13px; font-variant-numeric: tabular-nums; }
+  .flow-item-row {
+    display: grid;
+    grid-template-columns: 16px 1fr 140px 30px;
+    gap: 8px;
+    align-items: center;
+    padding: 8px 6px;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+  }
+  .flow-item-row input[type="text"] { padding: 4px 8px; }
+  .flow-item-row input[type="number"] { font-variant-numeric: tabular-nums; text-align: right; padding: 4px 8px; }
+  .flow-item-row.dragging { opacity: 0.4; }
+  .flow-item-row.drop-above { box-shadow: inset 0 2px 0 0 var(--primary); }
+  .flow-item-row.drop-below { box-shadow: inset 0 -2px 0 0 var(--primary); }
+  .flow-add {
+    display: grid;
+    grid-template-columns: 1fr 140px auto;
+    gap: 8px;
+    margin-top: 10px;
+    align-items: end;
+  }
+  @media (max-width: 720px) { .flow-add { grid-template-columns: 1fr 1fr; } }
   .currency-badge {
     display: inline-block;
     padding: 1px 6px;
@@ -824,8 +859,27 @@
   </section>
 
   <section class="card form-card">
-    <h2>📋 カテゴリ別 内訳</h2>
-    <table class="flow-detail-table" id="flow-detail"></table>
+    <h2>🏠 固定費 <span class="badge" id="flow-fixed-month">—</span></h2>
+    <div class="flow-item-list" id="flow-fixed-list"></div>
+    <div class="flow-add">
+      <input type="text" id="flow-fixed-name" placeholder="項目名 (例: 家賃 / NHK / Netflix)" />
+      <input type="number" id="flow-fixed-amount" min="0" step="1" placeholder="金額 (円)" />
+      <button type="button" class="primary" id="flow-fixed-add" style="width:auto;">追加</button>
+    </div>
+  </section>
+
+  <section class="card form-card">
+    <h2>🛒 変動費 <span class="badge" id="flow-variable-month">—</span></h2>
+    <div class="flow-item-list" id="flow-variable-list"></div>
+    <div class="flow-add">
+      <input type="text" id="flow-variable-name" placeholder="項目名 (例: 食費 / 外食 / ガソリン)" />
+      <input type="number" id="flow-variable-amount" min="0" step="1" placeholder="金額 (円)" />
+      <button type="button" class="primary" id="flow-variable-add" style="width:auto;">追加</button>
+    </div>
+    <p style="font-size:12px; color: var(--muted); margin-top: 12px;">
+      項目名・金額はクリックで編集、左端の ⋮⋮ をドラッグで並べ替え可能です。<br>
+      金額は表示月のみに反映されます (月切替で各月独立)。
+    </p>
   </section>
 </main>
 
@@ -1781,7 +1835,55 @@
   });
 
   const ASSETS_KEY = 'kakeibo.assets.v1';
+  const FLOW_KEY = 'kakeibo.flow.v1';
   const CURRENCIES = ['JPY', 'USD', 'SGD'];
+  let flow = { items: [], amounts: {} };
+
+  function loadFlow() {
+    try {
+      const raw = JSON.parse(localStorage.getItem(FLOW_KEY));
+      if (raw && Array.isArray(raw.items) && typeof raw.amounts === 'object') {
+        flow = raw;
+      }
+    } catch {}
+  }
+  function saveFlow() { localStorage.setItem(FLOW_KEY, JSON.stringify(flow)); }
+  function flowAmountFor(itemId, monthKey) {
+    const m = flow.amounts[monthKey];
+    return m && Number.isFinite(m[itemId]) ? m[itemId] : 0;
+  }
+  function setFlowAmount(itemId, monthKey, value) {
+    if (!flow.amounts[monthKey]) flow.amounts[monthKey] = {};
+    if (Number.isFinite(value) && value > 0) flow.amounts[monthKey][itemId] = Math.round(value);
+    else delete flow.amounts[monthKey][itemId];
+    saveFlow();
+  }
+  function addFlowItem(group, name, amount) {
+    if (!['固定費', '変動費'].includes(group) || !name || !name.trim()) return;
+    const id = 'f' + Date.now() + Math.floor(Math.random() * 1000);
+    flow.items.push({ id, group, name: name.trim() });
+    if (Number.isFinite(amount) && amount > 0) setFlowAmount(id, ym(viewMonth), amount);
+    saveFlow();
+  }
+  function renameFlowItem(id, name) {
+    const it = flow.items.find(x => x.id === id);
+    if (it && name && name.trim()) { it.name = name.trim(); saveFlow(); }
+  }
+  function deleteFlowItem(id) {
+    flow.items = flow.items.filter(x => x.id !== id);
+    for (const m in flow.amounts) delete flow.amounts[m][id];
+    saveFlow();
+  }
+  function reorderFlowItem(srcId, tgtId, dropAbove) {
+    if (srcId === tgtId) return;
+    const src = flow.items.find(x => x.id === srcId);
+    const tgt = flow.items.find(x => x.id === tgtId);
+    if (!src || !tgt || src.group !== tgt.group) return;
+    flow.items = flow.items.filter(x => x.id !== srcId);
+    const tgtIdx = flow.items.findIndex(x => x.id === tgtId);
+    flow.items.splice(dropAbove ? tgtIdx : tgtIdx + 1, 0, src);
+    saveFlow();
+  }
   let assets = { accounts: [], snapshots: {}, rates: {} };
   let networthChart = null;
   let flowChart = null;
@@ -1972,24 +2074,24 @@
   function renderFlow() {
     const monthKey = ym(viewMonth);
     const monthExpenses = entries.filter(e => e.date.startsWith(monthKey) && e.type === 'expense' && isFamily(e));
-    const byGroup = { 'クレカ': 0, '固定費': 0, '変動費': 0 };
-    const byCat = {};
-    for (const e of monthExpenses) {
-      const g = groupOfCategory(e.category);
-      byGroup[g] = (byGroup[g] || 0) + e.amount;
-      byCat[e.category] = (byCat[e.category] || 0) + e.amount;
-    }
-    const total = byGroup['クレカ'] + byGroup['固定費'] + byGroup['変動費'];
+    const cardTotal = monthExpenses.filter(e => e.category === 'クレカ').reduce((s, e) => s + e.amount, 0);
+    const fixedItems = flow.items.filter(x => x.group === '固定費');
+    const variableItems = flow.items.filter(x => x.group === '変動費');
+    const fixedTotal = fixedItems.reduce((s, x) => s + flowAmountFor(x.id, monthKey), 0);
+    const variableTotal = variableItems.reduce((s, x) => s + flowAmountFor(x.id, monthKey), 0);
+    const total = cardTotal + fixedTotal + variableTotal;
     const pct = (v) => total > 0 ? ((v / total) * 100).toFixed(1) + '%' : '—';
-    document.getElementById('flow-card').textContent = fmt(byGroup['クレカ']);
-    document.getElementById('flow-card-meta').textContent = '全体の ' + pct(byGroup['クレカ']);
-    document.getElementById('flow-fixed').textContent = fmt(byGroup['固定費']);
-    document.getElementById('flow-fixed-meta').textContent = '全体の ' + pct(byGroup['固定費']);
-    document.getElementById('flow-variable').textContent = fmt(byGroup['変動費']);
-    document.getElementById('flow-variable-meta').textContent = '全体の ' + pct(byGroup['変動費']);
+    document.getElementById('flow-card').textContent = fmt(cardTotal);
+    document.getElementById('flow-card-meta').textContent = '全体の ' + pct(cardTotal);
+    document.getElementById('flow-fixed').textContent = fmt(fixedTotal);
+    document.getElementById('flow-fixed-meta').textContent = '全体の ' + pct(fixedTotal);
+    document.getElementById('flow-variable').textContent = fmt(variableTotal);
+    document.getElementById('flow-variable-meta').textContent = '全体の ' + pct(variableTotal);
+    document.getElementById('flow-fixed-month').textContent = monthLabel(viewMonth) + ' / 計 ' + fmt(fixedTotal);
+    document.getElementById('flow-variable-month').textContent = monthLabel(viewMonth) + ' / 計 ' + fmt(variableTotal);
 
     const labels = ['クレカ', '固定費', '変動費'];
-    const data = labels.map(l => byGroup[l]);
+    const data = [cardTotal, fixedTotal, variableTotal];
     const ctx = document.getElementById('flow-chart').getContext('2d');
     if (flowChart) flowChart.destroy();
     if (total > 0) {
@@ -2008,20 +2110,23 @@
       ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
     }
 
-    let html = '';
-    for (const group of ['固定費', '変動費', 'クレカ']) {
-      html += `<tr class="group-row"><td colspan="2">${group} (${fmt(byGroup[group])})</td></tr>`;
-      const cats = EXPENSE_GROUPS[group];
-      let any = false;
-      for (const cat of cats) {
-        const v = byCat[cat] || 0;
-        if (v === 0) continue;
-        any = true;
-        html += `<tr><td class="cat">${escapeHtml(cat)}</td><td class="amt">${fmt(v)}</td></tr>`;
-      }
-      if (!any) html += `<tr><td colspan="2" style="color:var(--muted);font-size:12px;">— なし —</td></tr>`;
+    renderFlowList('flow-fixed-list', fixedItems, monthKey);
+    renderFlowList('flow-variable-list', variableItems, monthKey);
+  }
+
+  function renderFlowList(elId, items, monthKey) {
+    const el = document.getElementById(elId);
+    if (items.length === 0) {
+      el.innerHTML = `<div style="font-size:12px;color:var(--muted);padding:8px 0;">項目はまだありません。下のフォームから追加してください。</div>`;
+      return;
     }
-    document.getElementById('flow-detail').innerHTML = html;
+    el.innerHTML = items.map(it => `
+      <div class="flow-item-row" draggable="true" data-flow-id="${it.id}" data-flow-group="${escapeHtml(it.group)}">
+        <span class="drag-handle" title="ドラッグで並べ替え">⋮⋮</span>
+        <input type="text" value="${escapeHtml(it.name)}" data-flow-name="${it.id}" />
+        <input type="number" min="0" step="1" value="${flowAmountFor(it.id, monthKey)}" data-flow-amount="${it.id}" />
+        <button type="button" class="delete-btn" data-flow-delete="${it.id}" title="削除">×</button>
+      </div>`).join('');
   }
 
   function setupTabs() {
@@ -2108,6 +2213,81 @@
         renderStock();
       }
     });
+
+    for (const group of ['fixed', 'variable']) {
+      const g = group === 'fixed' ? '固定費' : '変動費';
+      document.getElementById(`flow-${group}-add`).addEventListener('click', () => {
+        const nameEl = document.getElementById(`flow-${group}-name`);
+        const amtEl = document.getElementById(`flow-${group}-amount`);
+        const name = nameEl.value.trim();
+        const amount = parseInt(amtEl.value || '0', 10) || 0;
+        if (!name) { alert('項目名を入力してください'); return; }
+        addFlowItem(g, name, amount);
+        nameEl.value = '';
+        amtEl.value = '';
+        renderFlow();
+      });
+    }
+
+    for (const listId of ['flow-fixed-list', 'flow-variable-list']) {
+      const flowList = document.getElementById(listId);
+      flowList.addEventListener('change', (e) => {
+        const t = e.target;
+        if (t.dataset.flowAmount) {
+          setFlowAmount(t.dataset.flowAmount, ym(viewMonth), parseInt(t.value || '0', 10));
+          renderFlow();
+        } else if (t.dataset.flowName) {
+          renameFlowItem(t.dataset.flowName, t.value);
+        }
+      });
+      flowList.addEventListener('click', (e) => {
+        const id = e.target.dataset.flowDelete;
+        if (!id) return;
+        const it = flow.items.find(x => x.id === id);
+        if (it && confirm(`「${it.name}」を削除しますか? (履歴も全て削除)`)) {
+          deleteFlowItem(id);
+          renderFlow();
+        }
+      });
+      let fSrcId = null, fSrcGroup = null;
+      flowList.addEventListener('dragstart', (e) => {
+        const row = e.target.closest('.flow-item-row');
+        if (!row) return;
+        fSrcId = row.dataset.flowId;
+        fSrcGroup = row.dataset.flowGroup;
+        row.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', fSrcId);
+      });
+      flowList.addEventListener('dragend', () => {
+        flowList.querySelectorAll('.flow-item-row').forEach(r => r.classList.remove('dragging', 'drop-above', 'drop-below'));
+        fSrcId = null; fSrcGroup = null;
+      });
+      flowList.addEventListener('dragover', (e) => {
+        const row = e.target.closest('.flow-item-row');
+        if (!row || !fSrcId || row.dataset.flowGroup !== fSrcGroup || row.dataset.flowId === fSrcId) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        const rect = row.getBoundingClientRect();
+        const above = (e.clientY - rect.top) < rect.height / 2;
+        flowList.querySelectorAll('.flow-item-row').forEach(r => r.classList.remove('drop-above', 'drop-below'));
+        row.classList.add(above ? 'drop-above' : 'drop-below');
+      });
+      flowList.addEventListener('dragleave', (e) => {
+        const row = e.target.closest('.flow-item-row');
+        if (row) row.classList.remove('drop-above', 'drop-below');
+      });
+      flowList.addEventListener('drop', (e) => {
+        const row = e.target.closest('.flow-item-row');
+        if (!row || !fSrcId || row.dataset.flowGroup !== fSrcGroup) return;
+        e.preventDefault();
+        const targetId = row.dataset.flowId;
+        const rect = row.getBoundingClientRect();
+        const above = (e.clientY - rect.top) < rect.height / 2;
+        reorderFlowItem(fSrcId, targetId, above);
+        renderFlow();
+      });
+    }
   }
 
   function switchTab(name) {
@@ -2122,6 +2302,7 @@
 
   migrateUsers();
   loadAssets();
+  loadFlow();
   setupTabs();
   document.getElementById('date').value = new Date().toISOString().slice(0, 10);
   setType('income');
