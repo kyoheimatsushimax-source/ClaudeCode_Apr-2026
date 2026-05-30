@@ -423,6 +423,108 @@
   }
   .person-top-list .row span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .person-top-list .row span:last-child { font-variant-numeric: tabular-nums; color: var(--muted); }
+
+  .tabs {
+    display: flex;
+    gap: 4px;
+    padding: 0 16px;
+    background: var(--card);
+    border-bottom: 1px solid var(--border);
+    overflow-x: auto;
+  }
+  .tab {
+    background: transparent;
+    border: none;
+    padding: 14px 18px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--muted);
+    cursor: pointer;
+    border-bottom: 3px solid transparent;
+    margin-bottom: -1px;
+    white-space: nowrap;
+  }
+  .tab:hover { color: var(--text); }
+  .tab.active { color: var(--primary); border-bottom-color: var(--primary); }
+
+  .flow-types {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  @media (max-width: 720px) { .flow-types { grid-template-columns: 1fr; } }
+  .flow-type {
+    padding: 14px 16px;
+    border-radius: 10px;
+    background: var(--bg);
+    border-left: 4px solid var(--border);
+  }
+  .flow-type.fixed { border-left-color: #f59e0b; }
+  .flow-type.variable { border-left-color: #06b6d4; }
+  .flow-type.card { border-left-color: #8b5cf6; }
+  .flow-type-label { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+  .flow-type-value { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .flow-type-meta { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .flow-detail-table { width: 100%; font-size: 13px; }
+  .flow-detail-table td { padding: 6px 4px; border-bottom: 1px solid var(--border); }
+  .flow-detail-table td.cat { font-weight: 600; }
+  .flow-detail-table td.amt { text-align: right; font-variant-numeric: tabular-nums; }
+  .flow-detail-table .group-row { background: var(--bg); font-weight: 700; font-size: 12px; color: var(--muted); }
+
+  .stock-summary {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  @media (max-width: 720px) { .stock-summary { grid-template-columns: repeat(2, 1fr); } }
+  .stock-summary-item {
+    padding: 14px 16px;
+    border-radius: 10px;
+    background: var(--bg);
+    border-left: 4px solid var(--border);
+  }
+  .stock-summary-item.deposit { border-left-color: #10b981; }
+  .stock-summary-item.invest { border-left-color: #3b82f6; }
+  .stock-summary-item.debt { border-left-color: #ef4444; }
+  .stock-summary-item.net { background: linear-gradient(135deg, #1e40af 0%, #2563eb 100%); color: white; border-left: none; }
+  .stock-label { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+  .stock-summary-item.net .stock-label { color: rgba(255,255,255,0.85); }
+  .stock-value { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .accounts-group { margin-bottom: 16px; }
+  .accounts-group-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 8px;
+    font-size: 14px;
+    font-weight: 700;
+  }
+  .accounts-group-head .total { color: var(--muted); font-weight: 600; font-size: 13px; font-variant-numeric: tabular-nums; }
+  .account-row {
+    display: grid;
+    grid-template-columns: 1fr 140px 80px 30px;
+    gap: 8px;
+    align-items: center;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+  }
+  .account-row .name { font-weight: 500; }
+  .account-row input[type="number"] { font-variant-numeric: tabular-nums; text-align: right; }
+  .account-add {
+    display: grid;
+    grid-template-columns: 100px 1fr 140px auto;
+    gap: 8px;
+    margin-top: 12px;
+    align-items: end;
+  }
+  @media (max-width: 720px) {
+    .account-add { grid-template-columns: 1fr 1fr; }
+    .account-row { grid-template-columns: 1fr 100px 30px; }
+    .account-row .meta-col { display: none; }
+  }
   .tools {
     display: flex;
     gap: 8px;
@@ -461,7 +563,13 @@
   </div>
 </header>
 
-<main>
+<nav class="tabs">
+  <button type="button" class="tab active" data-tab="dashboard">📊 ダッシュボード</button>
+  <button type="button" class="tab" data-tab="flow">💰 フロー</button>
+  <button type="button" class="tab" data-tab="stock">🏦 ストック</button>
+</nav>
+
+<main id="view-dashboard">
   <section class="hero form-card">
     <div class="hero-title">家計ダッシュボード</div>
     <div class="hero-month" id="hero-month">—</div>
@@ -650,6 +758,101 @@
   </section>
 </main>
 
+<main id="view-flow" style="display:none">
+  <section class="card form-card">
+    <h2>💰 フロー サマリ</h2>
+    <p style="font-size:12px; color: var(--muted); margin: -8px 0 14px;">
+      家族の支出を「クレカ」「固定費」「変動費」の3区分で表示します。
+    </p>
+    <div class="flow-types">
+      <div class="flow-type card">
+        <div class="flow-type-label">💳 クレカ</div>
+        <div class="flow-type-value" id="flow-card">¥0</div>
+        <div class="flow-type-meta" id="flow-card-meta">—</div>
+      </div>
+      <div class="flow-type fixed">
+        <div class="flow-type-label">🏠 固定費</div>
+        <div class="flow-type-value" id="flow-fixed">¥0</div>
+        <div class="flow-type-meta" id="flow-fixed-meta">—</div>
+      </div>
+      <div class="flow-type variable">
+        <div class="flow-type-label">🛒 変動費</div>
+        <div class="flow-type-value" id="flow-variable">¥0</div>
+        <div class="flow-type-meta" id="flow-variable-meta">—</div>
+      </div>
+    </div>
+    <div class="chart-container">
+      <canvas id="flow-chart"></canvas>
+    </div>
+  </section>
+
+  <section class="card form-card">
+    <h2>📋 カテゴリ別 内訳</h2>
+    <table class="flow-detail-table" id="flow-detail"></table>
+  </section>
+</main>
+
+<main id="view-stock" style="display:none">
+  <section class="card form-card">
+    <h2>🏦 ストック サマリ <span class="badge" id="stock-month">—</span></h2>
+    <p style="font-size:12px; color: var(--muted); margin: -8px 0 14px;">
+      上部の月切替で表示月を変更できます。月末時点のスナップショットを保存します。
+    </p>
+    <div class="stock-summary">
+      <div class="stock-summary-item deposit">
+        <div class="stock-label">💵 預金</div>
+        <div class="stock-value" id="stock-deposit">¥0</div>
+      </div>
+      <div class="stock-summary-item invest">
+        <div class="stock-label">📈 投資</div>
+        <div class="stock-value" id="stock-invest">¥0</div>
+      </div>
+      <div class="stock-summary-item debt">
+        <div class="stock-label">🔴 負債</div>
+        <div class="stock-value" id="stock-debt">¥0</div>
+      </div>
+      <div class="stock-summary-item net">
+        <div class="stock-label">⭐ 純資産</div>
+        <div class="stock-value" id="stock-net">¥0</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="card form-card">
+    <h2>📊 純資産の推移</h2>
+    <div class="chart-container">
+      <canvas id="networth-chart"></canvas>
+    </div>
+  </section>
+
+  <section class="card form-card">
+    <h2>💼 口座一覧</h2>
+    <div id="accounts-list"></div>
+    <div class="account-add">
+      <div>
+        <label for="acc-type">種別</label>
+        <select id="acc-type">
+          <option value="預金">預金</option>
+          <option value="投資">投資</option>
+          <option value="負債">負債</option>
+        </select>
+      </div>
+      <div>
+        <label for="acc-name">口座名</label>
+        <input type="text" id="acc-name" placeholder="例: 楽天銀行 / SBI証券 / 住宅ローン" />
+      </div>
+      <div>
+        <label for="acc-balance">今月の残高 (円)</label>
+        <input type="number" id="acc-balance" min="0" step="1" placeholder="0" />
+      </div>
+      <button type="button" class="primary" id="acc-add-btn" style="width:auto;">追加</button>
+    </div>
+    <p style="font-size:12px; color: var(--muted); margin-top: 12px;">
+      負債は正の数で入力してください (純資産計算時にマイナス扱いになります)。
+    </p>
+  </section>
+</main>
+
 <div id="cc-preview-overlay" class="modal-overlay" style="display:none">
   <div class="modal wide">
     <h2>クレカ明細プレビュー</h2>
@@ -682,8 +885,21 @@
   const BUDGET_KEY = 'kakeibo.budgets.v1';
   const CATEGORIES = {
     income: ['給与(自分)', '給与(妻)', '補助金(保育料)', '補助金(児童手当)', '補助金(区手当)'],
-    expense: ['クレカ', '保育料'],
+    expense: [
+      'クレカ',
+      '家賃', '光熱費', '通信費', '保険', 'サブスク', '保育料',
+      '食費', '日用品', '娯楽', '交通', '医療', 'その他',
+    ],
   };
+  const EXPENSE_GROUPS = {
+    'クレカ': ['クレカ'],
+    '固定費': ['家賃', '光熱費', '通信費', '保険', 'サブスク', '保育料'],
+    '変動費': ['食費', '日用品', '娯楽', '交通', '医療', 'その他'],
+  };
+  function groupOfCategory(cat) {
+    for (const g in EXPENSE_GROUPS) if (EXPENSE_GROUPS[g].includes(cat)) return g;
+    return '変動費';
+  }
   const CATEGORIES_LEGACY = {
     income: ['給与', '副業', 'ボーナス', '臨時収入', 'その他'],
     expense: ['食費', '日用品', '住居', '光熱費', '通信', '交通', '医療', '娯楽', '衣服', '教育', 'その他'],
@@ -868,6 +1084,8 @@
     renderChart(monthEntries.filter(e => e.type === 'expense'));
     renderBudgets(monthEntries.filter(e => e.type === 'expense'));
     renderYearly();
+    if (activeTab === 'flow') renderFlow();
+    if (activeTab === 'stock') renderStock();
   }
 
   function renderBudgets(monthExpenses) {
@@ -1498,7 +1716,226 @@
     if (e.dataTransfer.files.length) readCcFile(e.dataTransfer.files[0]);
   });
 
+  const ASSETS_KEY = 'kakeibo.assets.v1';
+  let assets = { accounts: [], snapshots: {} };
+  let networthChart = null;
+  let flowChart = null;
+  let activeTab = 'dashboard';
+
+  function loadAssets() {
+    try {
+      const raw = JSON.parse(localStorage.getItem(ASSETS_KEY));
+      if (raw && Array.isArray(raw.accounts) && typeof raw.snapshots === 'object') {
+        assets = raw;
+      }
+    } catch {}
+  }
+  function saveAssets() { localStorage.setItem(ASSETS_KEY, JSON.stringify(assets)); }
+
+  function balanceFor(accountId, monthKey) {
+    const snap = assets.snapshots[monthKey];
+    if (snap && typeof snap[accountId] === 'number') return snap[accountId];
+    const months = Object.keys(assets.snapshots).filter(k => k < monthKey).sort();
+    for (let i = months.length - 1; i >= 0; i--) {
+      const s = assets.snapshots[months[i]];
+      if (s && typeof s[accountId] === 'number') return s[accountId];
+    }
+    return 0;
+  }
+
+  function setBalance(accountId, monthKey, value) {
+    if (!assets.snapshots[monthKey]) assets.snapshots[monthKey] = {};
+    assets.snapshots[monthKey][accountId] = Math.round(value);
+    saveAssets();
+  }
+
+  function addAccount(type, name, balance) {
+    if (!['預金', '投資', '負債'].includes(type)) return;
+    if (!name || !name.trim()) return;
+    const id = 'a' + Date.now() + Math.floor(Math.random() * 1000);
+    assets.accounts.push({ id, type, name: name.trim() });
+    if (Number.isFinite(balance) && balance >= 0) setBalance(id, ym(viewMonth), balance);
+    saveAssets();
+  }
+
+  function deleteAccount(id) {
+    assets.accounts = assets.accounts.filter(a => a.id !== id);
+    for (const m in assets.snapshots) delete assets.snapshots[m][id];
+    saveAssets();
+  }
+
+  function renderStock() {
+    const monthKey = ym(viewMonth);
+    document.getElementById('stock-month').textContent = monthLabel(viewMonth) + ' 時点';
+    const totals = { '預金': 0, '投資': 0, '負債': 0 };
+    for (const a of assets.accounts) totals[a.type] += balanceFor(a.id, monthKey);
+    document.getElementById('stock-deposit').textContent = fmt(totals['預金']);
+    document.getElementById('stock-invest').textContent = fmt(totals['投資']);
+    document.getElementById('stock-debt').textContent = fmt(totals['負債']);
+    const net = totals['預金'] + totals['投資'] - totals['負債'];
+    const netEl = document.getElementById('stock-net');
+    netEl.textContent = (net < 0 ? '-' : '') + fmt(Math.abs(net));
+
+    const groups = { '預金': [], '投資': [], '負債': [] };
+    for (const a of assets.accounts) groups[a.type].push(a);
+    const listEl = document.getElementById('accounts-list');
+    let html = '';
+    for (const type of ['預金', '投資', '負債']) {
+      const list = groups[type];
+      html += `<div class="accounts-group">
+        <div class="accounts-group-head"><span>${type}</span><span class="total">${fmt(totals[type])}</span></div>`;
+      if (list.length === 0) {
+        html += `<div style="font-size:12px;color:var(--muted);padding:8px 0;">この区分の口座はまだありません</div>`;
+      } else {
+        for (const a of list) {
+          const bal = balanceFor(a.id, monthKey);
+          html += `<div class="account-row">
+            <span class="name">${escapeHtml(a.name)}</span>
+            <input type="number" min="0" step="1" value="${bal}" data-acc-balance="${a.id}" />
+            <span class="meta-col" style="font-size:11px;color:var(--muted);">${escapeHtml(type)}</span>
+            <button type="button" class="delete-btn" data-acc-delete="${a.id}" title="削除">×</button>
+          </div>`;
+        }
+      }
+      html += `</div>`;
+    }
+    listEl.innerHTML = html;
+
+    renderNetworthChart();
+  }
+
+  function renderNetworthChart() {
+    const base = new Date(viewMonth);
+    const labels = [];
+    const data = [];
+    for (let i = 11; i >= 0; i--) {
+      const d = new Date(base.getFullYear(), base.getMonth() - i, 1);
+      const k = ym(d);
+      labels.push((d.getMonth() + 1) + '月');
+      let net = 0;
+      for (const a of assets.accounts) {
+        const b = balanceFor(a.id, k);
+        net += a.type === '負債' ? -b : b;
+      }
+      data.push(net);
+    }
+    const ctx = document.getElementById('networth-chart').getContext('2d');
+    if (networthChart) networthChart.destroy();
+    networthChart = new Chart(ctx, {
+      type: 'line',
+      data: { labels, datasets: [{ label: '純資産', data, borderColor: '#2563eb', backgroundColor: 'rgba(37,99,235,0.15)', tension: 0.3, fill: true, borderWidth: 2 }] },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false }, tooltip: { callbacks: { label: (c) => fmt(c.parsed.y) } } },
+        scales: { y: { ticks: { callback: (v) => '¥' + v.toLocaleString('ja-JP') } } },
+      },
+    });
+  }
+
+  function renderFlow() {
+    const monthKey = ym(viewMonth);
+    const monthExpenses = entries.filter(e => e.date.startsWith(monthKey) && e.type === 'expense' && isFamily(e));
+    const byGroup = { 'クレカ': 0, '固定費': 0, '変動費': 0 };
+    const byCat = {};
+    for (const e of monthExpenses) {
+      const g = groupOfCategory(e.category);
+      byGroup[g] = (byGroup[g] || 0) + e.amount;
+      byCat[e.category] = (byCat[e.category] || 0) + e.amount;
+    }
+    const total = byGroup['クレカ'] + byGroup['固定費'] + byGroup['変動費'];
+    const pct = (v) => total > 0 ? ((v / total) * 100).toFixed(1) + '%' : '—';
+    document.getElementById('flow-card').textContent = fmt(byGroup['クレカ']);
+    document.getElementById('flow-card-meta').textContent = '全体の ' + pct(byGroup['クレカ']);
+    document.getElementById('flow-fixed').textContent = fmt(byGroup['固定費']);
+    document.getElementById('flow-fixed-meta').textContent = '全体の ' + pct(byGroup['固定費']);
+    document.getElementById('flow-variable').textContent = fmt(byGroup['変動費']);
+    document.getElementById('flow-variable-meta').textContent = '全体の ' + pct(byGroup['変動費']);
+
+    const labels = ['クレカ', '固定費', '変動費'];
+    const data = labels.map(l => byGroup[l]);
+    const ctx = document.getElementById('flow-chart').getContext('2d');
+    if (flowChart) flowChart.destroy();
+    if (total > 0) {
+      flowChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: { labels, datasets: [{ data, backgroundColor: ['#8b5cf6', '#f59e0b', '#06b6d4'], borderWidth: 2, borderColor: '#fff' }] },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: {
+            legend: { position: 'right' },
+            tooltip: { callbacks: { label: (c) => `${c.label}: ${fmt(c.parsed)} (${((c.parsed / total) * 100).toFixed(1)}%)` } },
+          },
+        },
+      });
+    } else {
+      ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+    }
+
+    let html = '';
+    for (const group of ['固定費', '変動費', 'クレカ']) {
+      html += `<tr class="group-row"><td colspan="2">${group} (${fmt(byGroup[group])})</td></tr>`;
+      const cats = EXPENSE_GROUPS[group];
+      let any = false;
+      for (const cat of cats) {
+        const v = byCat[cat] || 0;
+        if (v === 0) continue;
+        any = true;
+        html += `<tr><td class="cat">${escapeHtml(cat)}</td><td class="amt">${fmt(v)}</td></tr>`;
+      }
+      if (!any) html += `<tr><td colspan="2" style="color:var(--muted);font-size:12px;">— なし —</td></tr>`;
+    }
+    document.getElementById('flow-detail').innerHTML = html;
+  }
+
+  function setupTabs() {
+    document.querySelectorAll('.tab').forEach(btn => {
+      btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+    });
+
+    document.getElementById('acc-add-btn').addEventListener('click', () => {
+      const type = document.getElementById('acc-type').value;
+      const name = document.getElementById('acc-name').value;
+      const balance = parseInt(document.getElementById('acc-balance').value || '0', 10);
+      if (!name.trim()) { alert('口座名を入力してください'); return; }
+      addAccount(type, name, balance);
+      document.getElementById('acc-name').value = '';
+      document.getElementById('acc-balance').value = '';
+      renderStock();
+    });
+
+    document.getElementById('accounts-list').addEventListener('change', (e) => {
+      const id = e.target.dataset.accBalance;
+      if (!id) return;
+      const v = parseInt(e.target.value || '0', 10);
+      if (!Number.isFinite(v)) return;
+      setBalance(id, ym(viewMonth), Math.max(0, v));
+      renderStock();
+    });
+
+    document.getElementById('accounts-list').addEventListener('click', (e) => {
+      const id = e.target.dataset.accDelete;
+      if (!id) return;
+      const a = assets.accounts.find(x => x.id === id);
+      if (a && confirm(`「${a.name}」を削除しますか? (履歴も全て削除)`)) {
+        deleteAccount(id);
+        renderStock();
+      }
+    });
+  }
+
+  function switchTab(name) {
+    activeTab = name;
+    document.querySelectorAll('.tab').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
+    document.getElementById('view-dashboard').style.display = name === 'dashboard' ? '' : 'none';
+    document.getElementById('view-flow').style.display = name === 'flow' ? '' : 'none';
+    document.getElementById('view-stock').style.display = name === 'stock' ? '' : 'none';
+    if (name === 'flow') renderFlow();
+    if (name === 'stock') renderStock();
+  }
+
   migrateUsers();
+  loadAssets();
+  setupTabs();
   document.getElementById('date').value = new Date().toISOString().slice(0, 10);
   setType('income');
   refreshBudgetCategorySelect();
