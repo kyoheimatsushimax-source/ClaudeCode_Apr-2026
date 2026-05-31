@@ -579,6 +579,28 @@
     align-items: end;
   }
   @media (max-width: 720px) { .flow-add { grid-template-columns: 1fr 1fr; } }
+
+  .entries-toolbar {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+  }
+  .entries-toolbar input[type="search"] {
+    flex: 1;
+    min-width: 180px;
+    padding: 8px 12px;
+  }
+  .entries-toolbar .badge { padding: 6px 10px; }
+  th.sortable {
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+  }
+  th.sortable:hover { color: var(--primary); }
+  th.sortable .arrow { color: var(--primary); margin-left: 2px; font-size: 10px; }
+  td.amount.refund { color: var(--income); }
+  td.amount.refund::before { content: '↩ '; font-size: 11px; }
   .currency-badge {
     display: inline-block;
     padding: 1px 6px;
@@ -810,16 +832,20 @@
 
   <section class="card form-card">
     <h2>📋 明細 <span class="badge" id="entry-count">0件</span></h2>
+    <div class="entries-toolbar">
+      <input type="search" id="entries-search" placeholder="メモ・カテゴリ・利用者・負担で検索…" />
+      <span class="badge" id="entries-search-meta" style="display:none"></span>
+    </div>
     <div id="entries-wrap">
       <table id="entries-table">
         <thead>
           <tr>
-            <th>日付</th>
-            <th>利用者</th>
-            <th>カテゴリ</th>
-            <th>負担</th>
-            <th>メモ</th>
-            <th style="text-align:right">金額</th>
+            <th class="sortable" data-sort="date">日付<span class="arrow" data-arrow="date"></span></th>
+            <th class="sortable" data-sort="user">利用者<span class="arrow" data-arrow="user"></span></th>
+            <th class="sortable" data-sort="category">カテゴリ<span class="arrow" data-arrow="category"></span></th>
+            <th class="sortable" data-sort="payer">負担<span class="arrow" data-arrow="payer"></span></th>
+            <th class="sortable" data-sort="memo">メモ<span class="arrow" data-arrow="memo"></span></th>
+            <th class="sortable" style="text-align:right" data-sort="amount">金額<span class="arrow" data-arrow="amount"></span></th>
             <th></th>
           </tr>
         </thead>
@@ -1165,15 +1191,41 @@
     const body = document.getElementById('entries-body');
     const empty = document.getElementById('empty-msg');
     const table = document.getElementById('entries-table');
-    document.getElementById('entry-count').textContent = monthEntries.length + '件';
-    if (monthEntries.length === 0) {
+    const q = entrySearch.trim().toLowerCase();
+    const filteredEntries = monthEntries.filter(e => {
+      if (!q) return true;
+      const haystack = [e.date, e.category, e.memo, userOf(e) || '', payerOf(e)].join(' ').toLowerCase();
+      return haystack.includes(q);
+    });
+    const sorted = filteredEntries.slice().sort((a, b) => {
+      const dir = entrySort.dir === 'asc' ? 1 : -1;
+      const k = entrySort.key;
+      let av, bv;
+      if (k === 'amount') { av = a.amount; bv = b.amount; }
+      else if (k === 'user') { av = userOf(a) || ''; bv = userOf(b) || ''; }
+      else if (k === 'payer') { av = payerOf(a); bv = payerOf(b); }
+      else { av = a[k] || ''; bv = b[k] || ''; }
+      if (av < bv) return -1 * dir;
+      if (av > bv) return 1 * dir;
+      return b.id - a.id;
+    });
+    document.getElementById('entry-count').textContent =
+      q ? `${sorted.length}件 / 全${monthEntries.length}件` : monthEntries.length + '件';
+    const searchMeta = document.getElementById('entries-search-meta');
+    if (q) { searchMeta.style.display = ''; searchMeta.textContent = `「${q}」`; }
+    else { searchMeta.style.display = 'none'; }
+    document.querySelectorAll('th [data-arrow]').forEach(a => a.textContent = '');
+    const arrow = document.querySelector(`th [data-arrow="${entrySort.key}"]`);
+    if (arrow) arrow.textContent = entrySort.dir === 'asc' ? '▲' : '▼';
+    if (sorted.length === 0) {
       body.innerHTML = '';
       table.style.display = 'none';
       empty.style.display = 'block';
+      empty.textContent = q ? '検索条件に一致する記録はありません' : 'この月の記録はまだありません';
     } else {
       table.style.display = '';
       empty.style.display = 'none';
-      body.innerHTML = monthEntries.map(e => {
+      body.innerHTML = sorted.map(e => {
         const p = payerOf(e);
         const pcls = p === 'K' ? 'k' : p === 'C' ? 'c' : 'family';
         const pOpts = PAYERS.map(v => `<option value="${v}"${v === p ? ' selected' : ''}>${v}</option>`).join('');
@@ -1186,6 +1238,10 @@
         } else {
           userCell = '<span style="color:var(--muted);font-size:12px;">—</span>';
         }
+        const isRefund = e.type === 'expense' && e.amount < 0;
+        const amtCls = isRefund ? 'refund' : (e.type === 'income' ? 'income' : 'expense');
+        const sign = e.type === 'income' ? '+' : (isRefund ? '+' : '-');
+        const amtTitle = isRefund ? '返金 (相殺)' : '';
         return `
         <tr>
           <td>${escapeHtml(e.date.slice(5).replace('-', '/'))}</td>
@@ -1193,7 +1249,7 @@
           <td>${escapeHtml(e.category)}</td>
           <td><select class="payer-select ${pcls}" data-payer-id="${Number(e.id)}">${pOpts}</select></td>
           <td>${escapeHtml(e.memo || '')}</td>
-          <td class="amount ${e.type === 'income' ? 'income' : 'expense'}">${e.type === 'income' ? '+' : '-'}${fmt(e.amount)}</td>
+          <td class="amount ${amtCls}" title="${amtTitle}">${sign}${fmt(Math.abs(e.amount))}</td>
           <td><button class="delete-btn" data-id="${Number(e.id)}" title="削除">×</button></td>
         </tr>`;
       }).join('');
@@ -1292,7 +1348,7 @@
     const type = e.type === 'income' ? 'income' : 'expense';
     const date = typeof e.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(e.date) ? e.date : null;
     const amount = Number(e.amount);
-    if (!date || !Number.isFinite(amount) || amount <= 0) return null;
+    if (!date || !Number.isFinite(amount) || amount === 0) return null;
     const allowedCats = allCategories(type);
     const category = allowedCats.includes(e.category) ? e.category : CATEGORIES[type][0];
     const memo = typeof e.memo === 'string' ? e.memo.slice(0, 200) : '';
@@ -1488,6 +1544,19 @@
     }
   });
 
+  document.getElementById('entries-search').addEventListener('input', (e) => {
+    entrySearch = e.target.value;
+    render();
+  });
+  document.querySelectorAll('th.sortable').forEach(th => {
+    th.addEventListener('click', () => {
+      const key = th.dataset.sort;
+      if (entrySort.key === key) entrySort.dir = entrySort.dir === 'asc' ? 'desc' : 'asc';
+      else { entrySort.key = key; entrySort.dir = key === 'amount' || key === 'date' ? 'desc' : 'asc'; }
+      render();
+    });
+  });
+
   document.getElementById('entries-body').addEventListener('change', (e) => {
     const payerId = e.target.dataset.payerId;
     const userId = e.target.dataset.userId;
@@ -1613,10 +1682,14 @@
 
   function parseAmountCell(v) {
     if (v == null || v === '') return null;
-    if (typeof v === 'number') return Math.abs(Math.round(v));
-    const s = String(v).replace(/[,¥￥\s円]/g, '').replace(/[()]/g, '');
+    if (typeof v === 'number') return Math.round(v);
+    let s = String(v).replace(/[,¥￥\s円]/g, '');
+    let neg = false;
+    if (/^\(.*\)$/.test(s)) { neg = true; s = s.slice(1, -1); }
+    if (/^[▲△−－‐]/.test(s)) { neg = true; s = s.slice(1); }
     const n = Number(s);
-    return Number.isFinite(n) ? Math.abs(Math.round(n)) : null;
+    if (!Number.isFinite(n)) return null;
+    return Math.round(neg ? -Math.abs(n) : n);
   }
 
   function detectColumns(rows) {
@@ -1646,7 +1719,7 @@
       if (r <= cols.headerRow) continue;
       const date = parseDateCell(row[cols.date]);
       const amount = parseAmountCell(row[cols.amount]);
-      if (!date || !amount) continue;
+      if (!date || amount == null || amount === 0) continue;
       const desc = cols.desc >= 0 ? String(row[cols.desc] || '').trim().slice(0, 200) : '';
       const colA = String(row[0] == null ? '' : row[0]).trim().slice(0, 60);
       out.push({ date, amount, memo: desc, user: currentUser || 'K', colA });
@@ -1888,6 +1961,8 @@
   let networthChart = null;
   let flowChart = null;
   let activeTab = 'dashboard';
+  let entrySort = { key: 'date', dir: 'desc' };
+  let entrySearch = '';
 
   function loadAssets() {
     try {
