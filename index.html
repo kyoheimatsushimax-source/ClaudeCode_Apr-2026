@@ -601,6 +601,16 @@
   th.sortable .arrow { color: var(--primary); margin-left: 2px; font-size: 10px; }
   td.amount.refund { color: var(--income); }
   td.amount.refund::before { content: '↩ '; font-size: 11px; }
+  .subcat-select {
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 2px 4px;
+    font-size: 11px;
+    width: auto;
+    cursor: pointer;
+    background: white;
+    color: var(--text);
+  }
   .currency-badge {
     display: inline-block;
     padding: 1px 6px;
@@ -1044,6 +1054,26 @@
     for (const g in EXPENSE_GROUPS) if (EXPENSE_GROUPS[g].includes(cat)) return g;
     return '変動費';
   }
+
+  const CC_SUBCATEGORIES = ['食費', '外食', '日用品', '交通', '娯楽', '衣服', '医療', '通信', '美容', 'その他'];
+  const SUBCAT_PATTERNS = [
+    { sub: '食費', words: ['西友', 'イオン', 'ライフ', '業務スーパー', 'マルエツ', 'サミット', 'いなげや', 'まいばすけっと', 'ヤオコー', 'オーケー', 'OKストア', 'コープ', 'co-op', '成城石井', 'KALDI', 'カルディ', '魚力', '肉のハナマサ', 'ローソン', 'セブン', 'ファミリーマート', 'ファミマ', 'ミニストップ', 'ニューデイズ', 'ＮＥＷＤＡＹＳ', 'デイリー'] },
+    { sub: '外食', words: ['スターバックス', 'STARBUCKS', 'STARBUCK', 'マクドナルド', 'McDonald', 'MCDONALD', 'モスバーガー', 'すき家', 'ココイチ', 'CoCo壱番屋', 'タリーズ', 'ドトール', 'サイゼリヤ', 'ガスト', '吉野家', '松屋', '丸亀製麺', 'はなまる', 'バーミヤン', 'ジョナサン', 'デニーズ', 'スシロー', 'くら寿司', 'はま寿司', '居酒屋', 'バル', 'BAR', 'カフェ', 'CAFE', '珈琲', 'コーヒー', 'レストラン', 'RESTAURANT', 'ピザ', 'PIZZA', 'BURGER'] },
+    { sub: '日用品', words: ['マツモトキヨシ', 'マツキヨ', 'ウエルシア', 'サンドラッグ', 'スギ薬局', 'ツルハ', 'ココカラ', 'ダイコク', 'クリエイト', 'ドンキ', 'ドン・キホーテ', 'カインズ', 'コーナン', 'DCM', 'ニトリ', '無印良品', 'ロフト', 'ロフト', '東急ハンズ', 'IKEA', 'ダイソー', 'セリア', 'キャンドゥ'] },
+    { sub: '交通', words: ['JR', 'ＪＲ', '東京メトロ', '東急', '小田急', '京王', '京急', '京成', '西武', '東武', '相鉄', 'PASMO', 'パスモ', 'Suica', 'スイカ', 'タクシー', 'TAXI', 'GO', 'Uber', 'ENEOS', '出光', 'コスモ石油', 'シェル', 'ESSO', 'モービル', 'JAF', 'ETC', '駐車場', 'パーキング'] },
+    { sub: '娯楽', words: ['Amazon', 'AMAZON', 'アマゾン', 'Netflix', 'NETFLIX', 'Spotify', 'SPOTIFY', 'YouTube', 'Apple', 'APPLE', 'iTunes', 'Google', 'GOOGLE', 'Play', 'Steam', 'PlayStation', 'Nintendo', '任天堂', 'ヨドバシ', 'ビックカメラ', 'ヤマダ', 'JOYSOUND', 'カラオケ', 'シネマ', '映画', 'TOHO', '109', 'ディズニー', 'USJ', 'ユニバ', 'TSUTAYA', 'ゲオ', '紀伊國屋', '丸善', 'ジュンク堂'] },
+    { sub: '衣服', words: ['ユニクロ', 'UNIQLO', 'GU', 'H&M', 'ZARA', 'ZOZO', 'ZOZOTOWN', 'しまむら', '青山', 'AOKI', 'ノースフェイス', 'NORTH FACE', 'ナイキ', 'NIKE', 'アディダス', 'ADIDAS', 'パタゴニア', 'BEAMS', 'UNITED ARROWS', 'TOMORROWLAND'] },
+    { sub: '医療', words: ['病院', 'クリニック', '医院', '歯科', 'デンタル', '薬局', '調剤', '内科', '外科', '皮膚科', '整形外科', '眼科', '耳鼻', '小児科'] },
+    { sub: '通信', words: ['ドコモ', 'ＮＴＴドコモ', 'NTTドコモ', 'NTT', 'au', 'KDDI', 'ソフトバンク', 'SoftBank', 'SOFTBANK', 'ahamo', 'povo', 'LINEMO', '楽天モバイル', 'mineo', 'UQ', 'BIGLOBE', 'ぷらら'] },
+    { sub: '美容', words: ['美容室', 'ヘアサロン', 'サロン', 'スパ', 'コスメ', 'COSME', '@cosme', '資生堂', 'SHISEIDO', 'マツエク', 'ネイル', '理容'] },
+  ];
+  function classifyMerchant(memo) {
+    if (!memo) return 'その他';
+    for (const { sub, words } of SUBCAT_PATTERNS) {
+      for (const w of words) if (memo.includes(w)) return sub;
+    }
+    return 'その他';
+  }
   const CATEGORIES_LEGACY = {
     income: ['給与', '副業', 'ボーナス', '臨時収入', 'その他'],
     expense: ['食費', '日用品', '住居', '光熱費', '通信', '交通', '医療', '娯楽', '衣服', '教育', 'その他'],
@@ -1107,6 +1137,10 @@
         changed = true;
       } else if (e.category !== 'クレカ' && e.user !== undefined && !USERS.includes(e.user)) {
         delete e.user;
+        changed = true;
+      }
+      if (e.category === 'クレカ' && !CC_SUBCATEGORIES.includes(e.subCategory)) {
+        e.subCategory = classifyMerchant(e.memo);
         changed = true;
       }
     }
@@ -1242,11 +1276,22 @@
         const amtCls = isRefund ? 'refund' : (e.type === 'income' ? 'income' : 'expense');
         const sign = e.type === 'income' ? '+' : (isRefund ? '+' : '-');
         const amtTitle = isRefund ? '返金 (相殺)' : '';
+        let categoryCell;
+        if (e.category === 'クレカ') {
+          const sc = CC_SUBCATEGORIES.includes(e.subCategory) ? e.subCategory : classifyMerchant(e.memo);
+          const sOpts = CC_SUBCATEGORIES.map(v => `<option value="${v}"${v === sc ? ' selected' : ''}>${v}</option>`).join('');
+          categoryCell = `<div style="display:flex;flex-direction:column;gap:2px;align-items:flex-start;">
+            <span style="font-size:11px;color:var(--muted);">クレカ</span>
+            <select class="subcat-select" data-subcat-id="${Number(e.id)}">${sOpts}</select>
+          </div>`;
+        } else {
+          categoryCell = escapeHtml(e.category);
+        }
         return `
         <tr>
           <td>${escapeHtml(e.date.slice(5).replace('-', '/'))}</td>
           <td>${userCell}</td>
-          <td>${escapeHtml(e.category)}</td>
+          <td>${categoryCell}</td>
           <td><select class="payer-select ${pcls}" data-payer-id="${Number(e.id)}">${pOpts}</select></td>
           <td>${escapeHtml(e.memo || '')}</td>
           <td class="amount ${amtCls}" title="${amtTitle}">${sign}${fmt(Math.abs(e.amount))}</td>
@@ -1356,6 +1401,7 @@
     const payer = PAYERS.includes(e.payer) ? e.payer : '家族';
     const out = { id, type, date, category, memo, amount: Math.round(amount), payer };
     if (USERS.includes(e.user)) out.user = e.user;
+    if (CC_SUBCATEGORIES.includes(e.subCategory)) out.subCategory = e.subCategory;
     return out;
   }
 
@@ -1476,7 +1522,12 @@
 
   function renderChart(expenseEntries) {
     const byCat = {};
-    expenseEntries.forEach(e => { byCat[e.category] = (byCat[e.category] || 0) + e.amount; });
+    expenseEntries.forEach(e => {
+      const key = e.category === 'クレカ'
+        ? 'クレカ/' + (CC_SUBCATEGORIES.includes(e.subCategory) ? e.subCategory : classifyMerchant(e.memo))
+        : e.category;
+      byCat[key] = (byCat[key] || 0) + e.amount;
+    });
     const labels = Object.keys(byCat);
     const data = labels.map(l => byCat[l]);
     const ctx = document.getElementById('chart').getContext('2d');
@@ -1560,13 +1611,15 @@
   document.getElementById('entries-body').addEventListener('change', (e) => {
     const payerId = e.target.dataset.payerId;
     const userId = e.target.dataset.userId;
-    const id = Number(payerId || userId);
+    const subCatId = e.target.dataset.subcatId;
+    const id = Number(payerId || userId || subCatId);
     if (!id) return;
     const target = entries.find(x => x.id === id);
     if (!target) return;
     const val = e.target.value;
     if (payerId && PAYERS.includes(val)) target.payer = val;
     else if (userId && USERS.includes(val)) target.user = val;
+    else if (subCatId && CC_SUBCATEGORIES.includes(val)) target.subCategory = val;
     else return;
     save();
     render();
@@ -1797,6 +1850,7 @@
         user: USERS.includes(i.user) ? i.user : 'K',
         memo: i.memo,
         amount: i.amount,
+        subCategory: classifyMerchant(i.memo),
       });
     }
     entries = entries.concat(added);
