@@ -741,23 +741,6 @@
 
   <section class="form-card grid-2">
     <div class="card">
-      <h2>💸 支出の内訳</h2>
-      <div class="mini-stats">
-        <div class="mini-stat">
-          <div class="mini-stat-label">日割り平均</div>
-          <div class="mini-stat-value" id="stat-daily-expense">¥0</div>
-        </div>
-        <div class="mini-stat">
-          <div class="mini-stat-label">月末予測</div>
-          <div class="mini-stat-value" id="stat-projection">¥0</div>
-        </div>
-      </div>
-      <div class="chart-container">
-        <canvas id="chart"></canvas>
-      </div>
-      <div class="chart-order" id="expense-chart-order"></div>
-    </div>
-    <div class="card">
       <h2>💰 収入の内訳</h2>
       <div class="mini-stats">
         <div class="mini-stat">
@@ -773,6 +756,23 @@
         <canvas id="income-chart"></canvas>
       </div>
       <div class="chart-order" id="income-chart-order"></div>
+    </div>
+    <div class="card">
+      <h2>💸 支出の内訳</h2>
+      <div class="mini-stats">
+        <div class="mini-stat">
+          <div class="mini-stat-label">日割り平均</div>
+          <div class="mini-stat-value" id="stat-daily-expense">¥0</div>
+        </div>
+        <div class="mini-stat">
+          <div class="mini-stat-label">月末予測</div>
+          <div class="mini-stat-value" id="stat-projection">¥0</div>
+        </div>
+      </div>
+      <div class="chart-container">
+        <canvas id="chart"></canvas>
+      </div>
+      <div class="chart-order" id="expense-chart-order"></div>
     </div>
   </section>
 
@@ -2258,7 +2258,16 @@
   function saveFlow() { localStorage.setItem(FLOW_KEY, JSON.stringify(flow)); }
   function flowAmountFor(itemId, monthKey) {
     const m = flow.amounts[monthKey];
-    return m && Number.isFinite(m[itemId]) ? m[itemId] : 0;
+    if (m && Number.isFinite(m[itemId])) return m[itemId];
+    const item = flow.items.find(x => x.id === itemId);
+    if (item && item.group === '固定費') {
+      const months = Object.keys(flow.amounts).filter(k => k < monthKey).sort();
+      for (let i = months.length - 1; i >= 0; i--) {
+        const v = flow.amounts[months[i]] && flow.amounts[months[i]][itemId];
+        if (Number.isFinite(v)) return v;
+      }
+    }
+    return 0;
   }
   function setFlowAmount(itemId, monthKey, value) {
     if (!flow.amounts[monthKey]) flow.amounts[monthKey] = {};
