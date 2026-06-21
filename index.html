@@ -1059,11 +1059,7 @@
   const BUDGET_KEY = 'kakeibo.budgets.v1';
   const CATEGORIES = {
     income: ['給与(自分)', '給与(妻)', '補助金(保育料)', '補助金(児童手当)', '補助金(区手当)'],
-    expense: [
-      'クレカ',
-      '家賃', '光熱費', '通信費', '保険', 'サブスク', '保育料',
-      '食費', '日用品', '娯楽', '交通', '医療', 'その他',
-    ],
+    expense: ['食費', '外食', '日用品', '交通', '娯楽', '旅行', '光熱費', '子ども関連', '医療', '通信', '美容', '小遣い', 'C立替', 'K立替', 'その他'],
   };
   const EXPENSE_GROUPS = {
     'クレカ': ['クレカ'],
@@ -1098,7 +1094,7 @@
   }
   const CATEGORIES_LEGACY = {
     income: ['給与', '副業', 'ボーナス', '臨時収入', 'その他'],
-    expense: ['食費', '日用品', '住居', '光熱費', '通信', '交通', '医療', '娯楽', '衣服', '教育', 'その他'],
+    expense: ['クレカ', '家賃', '通信費', '保険', 'サブスク', '保育料', '住居', '衣服', '教育'],
   };
   function allCategories(type) { return CATEGORIES[type].concat(CATEGORIES_LEGACY[type]); }
   const PAYERS = ['家族', 'K', 'C'];
