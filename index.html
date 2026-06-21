@@ -846,11 +846,11 @@
       <table id="income-table">
         <thead>
           <tr>
-            <th>日付</th>
-            <th>カテゴリ</th>
-            <th>負担</th>
-            <th>メモ</th>
-            <th style="text-align:right">金額</th>
+            <th class="sortable" data-income-sort="date">日付<span class="arrow" data-income-arrow="date"></span></th>
+            <th class="sortable" data-income-sort="category">カテゴリ<span class="arrow" data-income-arrow="category"></span></th>
+            <th class="sortable" data-income-sort="payer">負担<span class="arrow" data-income-arrow="payer"></span></th>
+            <th class="sortable" data-income-sort="memo">メモ<span class="arrow" data-income-arrow="memo"></span></th>
+            <th class="sortable" style="text-align:right" data-income-sort="amount">金額<span class="arrow" data-income-arrow="amount"></span></th>
             <th></th>
           </tr>
         </thead>
@@ -1495,7 +1495,20 @@
     const empty = document.getElementById('income-empty');
     const table = document.getElementById('income-table');
     document.getElementById('income-count').textContent = items.length + '件';
-    const sorted = items.slice().sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id);
+    document.querySelectorAll('th [data-income-arrow]').forEach(a => a.textContent = '');
+    const arrow = document.querySelector(`th [data-income-arrow="${incomeSort.key}"]`);
+    if (arrow) arrow.textContent = incomeSort.dir === 'asc' ? '▲' : '▼';
+    const dir = incomeSort.dir === 'asc' ? 1 : -1;
+    const k = incomeSort.key;
+    const sorted = items.slice().sort((a, b) => {
+      let av, bv;
+      if (k === 'amount') { av = a.amount; bv = b.amount; }
+      else if (k === 'payer') { av = payerOf(a); bv = payerOf(b); }
+      else { av = a[k] || ''; bv = b[k] || ''; }
+      if (av < bv) return -1 * dir;
+      if (av > bv) return 1 * dir;
+      return b.id - a.id;
+    });
     if (sorted.length === 0) {
       body.innerHTML = '';
       table.style.display = 'none';
@@ -1584,6 +1597,14 @@
         : e.category;
       byCat[key] = (byCat[key] || 0) + e.amount;
     });
+    const monthKey = ym(viewMonth);
+    for (const it of flow.items.filter(x => x.group === '固定費')) {
+      const amt = flowAmountFor(it.id, monthKey);
+      if (amt > 0) {
+        const key = '固定費/' + it.name;
+        byCat[key] = (byCat[key] || 0) + amt;
+      }
+    }
     const labels = Object.keys(byCat);
     const data = labels.map(l => byCat[l]);
     const ctx = document.getElementById('chart').getContext('2d');
@@ -1648,9 +1669,15 @@
   });
   document.querySelectorAll('th.sortable').forEach(th => {
     th.addEventListener('click', () => {
-      const key = th.dataset.sort;
-      if (entrySort.key === key) entrySort.dir = entrySort.dir === 'asc' ? 'desc' : 'asc';
-      else { entrySort.key = key; entrySort.dir = key === 'amount' || key === 'date' ? 'desc' : 'asc'; }
+      const eKey = th.dataset.sort;
+      const iKey = th.dataset.incomeSort;
+      if (eKey) {
+        if (entrySort.key === eKey) entrySort.dir = entrySort.dir === 'asc' ? 'desc' : 'asc';
+        else { entrySort.key = eKey; entrySort.dir = eKey === 'amount' || eKey === 'date' ? 'desc' : 'asc'; }
+      } else if (iKey) {
+        if (incomeSort.key === iKey) incomeSort.dir = incomeSort.dir === 'asc' ? 'desc' : 'asc';
+        else { incomeSort.key = iKey; incomeSort.dir = iKey === 'amount' || iKey === 'date' ? 'desc' : 'asc'; }
+      }
       render();
     });
   });
@@ -2077,6 +2104,7 @@
   let activeTab = 'dashboard';
   let entrySort = { key: 'date', dir: 'desc' };
   let entrySearch = '';
+  let incomeSort = { key: 'date', dir: 'desc' };
 
   function loadAssets() {
     try {
