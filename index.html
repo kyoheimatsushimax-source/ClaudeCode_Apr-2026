@@ -881,6 +881,21 @@
   </section>
 
   <section class="card form-card">
+    <h2>📊 支出カテゴリ別 月別推移
+      <select id="cattrend-mode" style="width:auto; padding:4px 8px; margin-left:8px; font-size:12px;">
+        <option value="stack">積み上げ棒</option>
+        <option value="line">折れ線</option>
+      </select>
+      <select id="cattrend-filter" style="width:auto; padding:4px 8px; margin-left:4px; font-size:12px;">
+        <option value="">全カテゴリ</option>
+      </select>
+    </h2>
+    <div class="chart-container wide">
+      <canvas id="cattrend-chart"></canvas>
+    </div>
+  </section>
+
+  <section class="card form-card">
     <h2>💰 収入明細 (給与・補助金) <span class="badge" id="income-count">0件</span></h2>
     <div id="income-wrap">
       <table id="income-table">
@@ -1182,6 +1197,9 @@
   let chart = null;
   let incomeChart = null;
   let yearlyChart = null;
+  let catTrendChart = null;
+  let catTrendMode = 'stack';
+  let catTrendFilter = '';
 
   function load() {
     try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }
@@ -1371,6 +1389,7 @@
     renderChart(monthEntries.filter(e => e.type === 'expense' && isFamily(e)));
     renderBudgets(monthEntries.filter(e => e.type === 'expense' && isFamily(e)));
     renderYearly();
+    renderCategoryTrend();
     if (activeTab === 'flow') renderFlow();
     if (activeTab === 'stock') renderStock();
   }
@@ -1640,6 +1659,71 @@
               },
             },
           },
+        },
+      },
+    });
+  }
+
+  function renderCategoryTrend() {
+    const months = [];
+    for (let i = 11; i >= 0; i--) {
+      const d = new Date(viewMonth.getFullYear(), viewMonth.getMonth() - i, 1);
+      months.push({ key: ym(d), label: (d.getMonth() + 1) + '月' });
+    }
+    const catMonthly = {};
+    function addAmt(cat, mKey, amt) {
+      if (!catMonthly[cat]) catMonthly[cat] = {};
+      catMonthly[cat][mKey] = (catMonthly[cat][mKey] || 0) + amt;
+    }
+    for (const m of months) {
+      const monthExpenses = entries.filter(e => e.date.startsWith(m.key) && e.type === 'expense' && isFamily(e));
+      for (const e of monthExpenses) {
+        const key = e.category === 'クレカ'
+          ? (CC_SUBCATEGORIES.includes(e.subCategory) ? e.subCategory : classifyMerchant(e.memo))
+          : e.category;
+        addAmt(key, m.key, e.amount);
+      }
+      for (const it of flow.items.filter(x => x.group === '固定費')) {
+        const amt = flowAmountFor(it.id, m.key);
+        if (amt > 0) addAmt(it.name, m.key, amt);
+      }
+    }
+    const allCats = reorderByPref(Object.keys(catMonthly), ui.expenseChartOrder);
+
+    const filterSel = document.getElementById('cattrend-filter');
+    const current = filterSel.value;
+    filterSel.innerHTML = '<option value="">全カテゴリ</option>' +
+      allCats.map(c => `<option value="${escapeHtml(c)}"${c === current ? ' selected' : ''}>${escapeHtml(c)}</option>`).join('');
+    if (current && !allCats.includes(current)) { catTrendFilter = ''; filterSel.value = ''; }
+
+    const targets = catTrendFilter ? allCats.filter(c => c === catTrendFilter) : allCats;
+    const labels = months.map(m => m.label);
+    const datasets = targets.map((cat, i) => {
+      const color = COLORS[allCats.indexOf(cat) % COLORS.length];
+      const data = months.map(m => catMonthly[cat][m.key] || 0);
+      if (catTrendMode === 'line') {
+        return { label: cat, data, borderColor: color, backgroundColor: color + '33', tension: 0.3, fill: false, borderWidth: 2 };
+      }
+      return { label: cat, data, backgroundColor: color, borderColor: color, borderWidth: 1, stack: 'expense' };
+    });
+    const ctx = document.getElementById('cattrend-chart').getContext('2d');
+    if (catTrendChart) catTrendChart.destroy();
+    catTrendChart = new Chart(ctx, {
+      type: catTrendMode === 'line' ? 'line' : 'bar',
+      data: { labels, datasets },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { position: 'bottom', labels: { font: { size: 11 }, boxWidth: 12 } },
+          tooltip: {
+            callbacks: { label: (c) => `${c.dataset.label}: ${fmt(c.parsed.y)}` },
+          },
+        },
+        scales: {
+          x: { stacked: catTrendMode === 'stack' },
+          y: { stacked: catTrendMode === 'stack', ticks: { callback: (v) => '¥' + v.toLocaleString('ja-JP') } },
         },
       },
     });
@@ -2739,6 +2823,14 @@
   setupTabs();
   attachChipDrag('expense-chart-order');
   attachChipDrag('income-chart-order');
+  document.getElementById('cattrend-mode').addEventListener('change', (e) => {
+    catTrendMode = e.target.value;
+    renderCategoryTrend();
+  });
+  document.getElementById('cattrend-filter').addEventListener('change', (e) => {
+    catTrendFilter = e.target.value;
+    renderCategoryTrend();
+  });
   document.getElementById('date').value = new Date().toISOString().slice(0, 10);
   setType('income');
   refreshBudgetCategorySelect();
