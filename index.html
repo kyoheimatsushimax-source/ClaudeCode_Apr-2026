@@ -601,6 +601,44 @@
   th.sortable .arrow { color: var(--primary); margin-left: 2px; font-size: 10px; }
   td.amount.refund { color: var(--income); }
   td.amount.refund::before { content: '↩ '; font-size: 11px; }
+  .chart-order {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 10px;
+    padding: 8px;
+    background: var(--bg);
+    border-radius: 8px;
+  }
+  .chart-order:empty { display: none; }
+  .chart-order .chip {
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 4px 8px 4px 6px;
+    font-size: 11px;
+    cursor: grab;
+    user-select: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-variant-numeric: tabular-nums;
+  }
+  .chart-order .chip:active { cursor: grabbing; }
+  .chart-order .chip.dragging { opacity: 0.4; }
+  .chart-order .chip.drop-before { box-shadow: inset 2px 0 0 0 var(--primary); }
+  .chart-order .chip.drop-after { box-shadow: inset -2px 0 0 0 var(--primary); }
+  .chart-order .chip .swatch { width: 8px; height: 8px; border-radius: 2px; }
+  .chart-order .chip .label { font-weight: 600; }
+  .chart-order .chip .val { color: var(--muted); }
+  .chart-order .hint { font-size: 11px; color: var(--muted); padding: 4px 0; }
+
+  #income-body tr.draggable-row { cursor: default; }
+  #income-body .drag-cell { width: 16px; text-align: center; cursor: grab; color: var(--muted); user-select: none; }
+  #income-body .drag-cell:active { cursor: grabbing; }
+  #income-body tr.dragging { opacity: 0.4; }
+  #income-body tr.drop-above td { box-shadow: inset 0 2px 0 0 var(--primary); }
+  #income-body tr.drop-below td { box-shadow: inset 0 -2px 0 0 var(--primary); }
   .subcat-select {
     border: 1px solid var(--border);
     border-radius: 4px;
@@ -717,6 +755,7 @@
       <div class="chart-container">
         <canvas id="chart"></canvas>
       </div>
+      <div class="chart-order" id="expense-chart-order"></div>
     </div>
     <div class="card">
       <h2>💰 収入の内訳</h2>
@@ -733,6 +772,7 @@
       <div class="chart-container">
         <canvas id="income-chart"></canvas>
       </div>
+      <div class="chart-order" id="income-chart-order"></div>
     </div>
   </section>
 
@@ -846,6 +886,7 @@
       <table id="income-table">
         <thead>
           <tr>
+            <th></th>
             <th class="sortable" data-income-sort="date">日付<span class="arrow" data-income-arrow="date"></span></th>
             <th class="sortable" data-income-sort="category">カテゴリ<span class="arrow" data-income-arrow="category"></span></th>
             <th class="sortable" data-income-sort="payer">負担<span class="arrow" data-income-arrow="payer"></span></th>
@@ -1492,19 +1533,30 @@
     const table = document.getElementById('income-table');
     document.getElementById('income-count').textContent = items.length + '件';
     document.querySelectorAll('th [data-income-arrow]').forEach(a => a.textContent = '');
-    const arrow = document.querySelector(`th [data-income-arrow="${incomeSort.key}"]`);
-    if (arrow) arrow.textContent = incomeSort.dir === 'asc' ? '▲' : '▼';
-    const dir = incomeSort.dir === 'asc' ? 1 : -1;
-    const k = incomeSort.key;
-    const sorted = items.slice().sort((a, b) => {
-      let av, bv;
-      if (k === 'amount') { av = a.amount; bv = b.amount; }
-      else if (k === 'payer') { av = payerOf(a); bv = payerOf(b); }
-      else { av = a[k] || ''; bv = b[k] || ''; }
-      if (av < bv) return -1 * dir;
-      if (av > bv) return 1 * dir;
-      return b.id - a.id;
-    });
+    let sorted;
+    if (incomeSort.key === 'custom') {
+      const orderMap = new Map(ui.incomeEntryOrder.map((id, i) => [id, i]));
+      sorted = items.slice().sort((a, b) => {
+        const ia = orderMap.has(a.id) ? orderMap.get(a.id) : Infinity;
+        const ib = orderMap.has(b.id) ? orderMap.get(b.id) : Infinity;
+        if (ia !== ib) return ia - ib;
+        return b.date.localeCompare(a.date) || b.id - a.id;
+      });
+    } else {
+      const arrow = document.querySelector(`th [data-income-arrow="${incomeSort.key}"]`);
+      if (arrow) arrow.textContent = incomeSort.dir === 'asc' ? '▲' : '▼';
+      const dir = incomeSort.dir === 'asc' ? 1 : -1;
+      const k = incomeSort.key;
+      sorted = items.slice().sort((a, b) => {
+        let av, bv;
+        if (k === 'amount') { av = a.amount; bv = b.amount; }
+        else if (k === 'payer') { av = payerOf(a); bv = payerOf(b); }
+        else { av = a[k] || ''; bv = b[k] || ''; }
+        if (av < bv) return -1 * dir;
+        if (av > bv) return 1 * dir;
+        return b.id - a.id;
+      });
+    }
     if (sorted.length === 0) {
       body.innerHTML = '';
       table.style.display = 'none';
@@ -1518,7 +1570,8 @@
       const pcls = p === 'K' ? 'k' : p === 'C' ? 'c' : 'family';
       const pOpts = PAYERS.map(v => `<option value="${v}"${v === p ? ' selected' : ''}>${v}</option>`).join('');
       return `
-      <tr>
+      <tr class="draggable-row" draggable="true" data-income-id="${Number(e.id)}">
+        <td class="drag-cell" title="ドラッグで並べ替え">⋮⋮</td>
         <td>${escapeHtml(e.date.slice(5).replace('-', '/'))}</td>
         <td>${escapeHtml(e.category)}</td>
         <td><select class="payer-select ${pcls}" data-payer-id="${Number(e.id)}">${pOpts}</select></td>
@@ -1554,15 +1607,17 @@
   function renderIncomeChart(monthIncomes) {
     const byCat = {};
     monthIncomes.forEach(e => { byCat[e.category] = (byCat[e.category] || 0) + e.amount; });
-    const labels = Object.keys(byCat);
-    const data = labels.map(l => byCat[l]);
+    const ordered = applyChartReorder(byCat, 'incomeChartOrder');
+    const labels = ordered.labels;
+    const data = ordered.data;
+    const greens = ['#10b981', '#059669', '#34d399', '#6ee7b7', '#a7f3d0', '#22c55e', '#16a34a', '#86efac'];
+    renderOrderChips('income-chart-order', labels, data, greens, 'incomeChartOrder');
     const ctx = document.getElementById('income-chart').getContext('2d');
     if (incomeChart) incomeChart.destroy();
     if (labels.length === 0) {
       ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
       return;
     }
-    const greens = ['#10b981', '#059669', '#34d399', '#6ee7b7', '#a7f3d0', '#22c55e', '#16a34a', '#86efac'];
     incomeChart = new Chart(ctx, {
       type: 'doughnut',
       data: { labels, datasets: [{ data, backgroundColor: greens, borderWidth: 2, borderColor: '#fff' }] },
@@ -1585,6 +1640,61 @@
     });
   }
 
+  function renderOrderChips(elId, labels, data, palette, prefKey) {
+    const el = document.getElementById(elId);
+    if (!el) return;
+    if (labels.length === 0) { el.innerHTML = ''; return; }
+    el.dataset.prefKey = prefKey;
+    el.innerHTML = '<span class="hint">並べ替え → </span>' + labels.map((l, i) => `
+      <span class="chip" draggable="true" data-label="${escapeHtml(l)}">
+        <span class="swatch" style="background:${palette[i % palette.length]}"></span>
+        <span class="label">${escapeHtml(l)}</span>
+        <span class="val">${fmt(data[i])}</span>
+      </span>`).join('');
+  }
+
+  function attachChipDrag(elId) {
+    const el = document.getElementById(elId);
+    if (!el || el.dataset.dragWired) return;
+    el.dataset.dragWired = '1';
+    let src = null;
+    el.addEventListener('dragstart', (e) => {
+      const chip = e.target.closest('.chip');
+      if (!chip) return;
+      src = chip.dataset.label;
+      chip.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', src);
+    });
+    el.addEventListener('dragend', () => {
+      el.querySelectorAll('.chip').forEach(c => c.classList.remove('dragging', 'drop-before', 'drop-after'));
+      src = null;
+    });
+    el.addEventListener('dragover', (e) => {
+      const chip = e.target.closest('.chip');
+      if (!chip || !src || chip.dataset.label === src) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      const rect = chip.getBoundingClientRect();
+      const before = (e.clientX - rect.left) < rect.width / 2;
+      el.querySelectorAll('.chip').forEach(c => c.classList.remove('drop-before', 'drop-after'));
+      chip.classList.add(before ? 'drop-before' : 'drop-after');
+    });
+    el.addEventListener('dragleave', (e) => {
+      const chip = e.target.closest('.chip');
+      if (chip) chip.classList.remove('drop-before', 'drop-after');
+    });
+    el.addEventListener('drop', (e) => {
+      const chip = e.target.closest('.chip');
+      if (!chip || !src) return;
+      e.preventDefault();
+      const rect = chip.getBoundingClientRect();
+      const before = (e.clientX - rect.left) < rect.width / 2;
+      reorderPref(el.dataset.prefKey, src, chip.dataset.label, before);
+      render();
+    });
+  }
+
   function renderChart(expenseEntries) {
     const byCat = {};
     expenseEntries.forEach(e => {
@@ -1600,8 +1710,10 @@
         byCat[it.name] = (byCat[it.name] || 0) + amt;
       }
     }
-    const labels = Object.keys(byCat);
-    const data = labels.map(l => byCat[l]);
+    const ordered = applyChartReorder(byCat, 'expenseChartOrder');
+    const labels = ordered.labels;
+    const data = ordered.data;
+    renderOrderChips('expense-chart-order', labels, data, COLORS, 'expenseChartOrder');
     const ctx = document.getElementById('chart').getContext('2d');
     if (chart) chart.destroy();
     if (labels.length === 0) {
@@ -1706,6 +1818,55 @@
   document.getElementById('entries-body').addEventListener('change', handleRowChange);
   document.getElementById('income-body').addEventListener('change', handleRowChange);
   document.getElementById('income-body').addEventListener('click', handleRowClick);
+
+  (function wireIncomeDrag() {
+    const tbody = document.getElementById('income-body');
+    let srcId = null;
+    tbody.addEventListener('dragstart', (e) => {
+      const tr = e.target.closest('tr.draggable-row');
+      if (!tr) return;
+      srcId = Number(tr.dataset.incomeId);
+      tr.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', String(srcId));
+    });
+    tbody.addEventListener('dragend', () => {
+      tbody.querySelectorAll('tr').forEach(r => r.classList.remove('dragging', 'drop-above', 'drop-below'));
+      srcId = null;
+    });
+    tbody.addEventListener('dragover', (e) => {
+      const tr = e.target.closest('tr.draggable-row');
+      if (!tr || !srcId || Number(tr.dataset.incomeId) === srcId) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      const rect = tr.getBoundingClientRect();
+      const above = (e.clientY - rect.top) < rect.height / 2;
+      tbody.querySelectorAll('tr').forEach(r => r.classList.remove('drop-above', 'drop-below'));
+      tr.classList.add(above ? 'drop-above' : 'drop-below');
+    });
+    tbody.addEventListener('dragleave', (e) => {
+      const tr = e.target.closest('tr.draggable-row');
+      if (tr) tr.classList.remove('drop-above', 'drop-below');
+    });
+    tbody.addEventListener('drop', (e) => {
+      const tr = e.target.closest('tr.draggable-row');
+      if (!tr || !srcId) return;
+      e.preventDefault();
+      const tgtId = Number(tr.dataset.incomeId);
+      const rect = tr.getBoundingClientRect();
+      const above = (e.clientY - rect.top) < rect.height / 2;
+      let list = ui.incomeEntryOrder.slice();
+      const allShownIds = Array.from(tbody.querySelectorAll('tr.draggable-row')).map(r => Number(r.dataset.incomeId));
+      for (const id of allShownIds) if (!list.includes(id)) list.push(id);
+      list = list.filter(id => id !== srcId);
+      const idx = list.indexOf(tgtId);
+      list.splice(above ? idx : idx + 1, 0, srcId);
+      ui.incomeEntryOrder = list;
+      incomeSort.key = 'custom';
+      saveUI();
+      render();
+    });
+  })();
 
   document.getElementById('prev-month').addEventListener('click', () => {
     viewMonth.setMonth(viewMonth.getMonth() - 1);
@@ -2042,6 +2203,44 @@
   dropZone.addEventListener('drop', (e) => {
     if (e.dataTransfer.files.length) readCcFile(e.dataTransfer.files[0]);
   });
+
+  const UI_KEY = 'kakeibo.ui.v1';
+  let ui = { incomeChartOrder: [], expenseChartOrder: [], incomeEntryOrder: [] };
+  function loadUI() {
+    try {
+      const raw = JSON.parse(localStorage.getItem(UI_KEY));
+      if (raw && typeof raw === 'object') {
+        ui.incomeChartOrder = Array.isArray(raw.incomeChartOrder) ? raw.incomeChartOrder : [];
+        ui.expenseChartOrder = Array.isArray(raw.expenseChartOrder) ? raw.expenseChartOrder : [];
+        ui.incomeEntryOrder = Array.isArray(raw.incomeEntryOrder) ? raw.incomeEntryOrder : [];
+      }
+    } catch {}
+  }
+  function saveUI() { localStorage.setItem(UI_KEY, JSON.stringify(ui)); }
+  function reorderByPref(labels, pref) {
+    const set = new Set(labels);
+    const ordered = pref.filter(l => set.has(l));
+    const rest = labels.filter(l => !pref.includes(l));
+    return ordered.concat(rest);
+  }
+  function applyChartReorder(byKey, prefKey) {
+    const labels = reorderByPref(Object.keys(byKey), ui[prefKey]);
+    const data = labels.map(l => byKey[l]);
+    return { labels, data };
+  }
+  function reorderPref(prefKey, srcLabel, tgtLabel, before) {
+    if (srcLabel === tgtLabel) return;
+    let list = ui[prefKey].slice();
+    list = list.filter(l => l !== srcLabel);
+    let idx = list.indexOf(tgtLabel);
+    if (idx < 0) {
+      list.push(tgtLabel);
+      idx = list.length - 1;
+    }
+    list.splice(before ? idx : idx + 1, 0, srcLabel);
+    ui[prefKey] = list;
+    saveUI();
+  }
 
   const ASSETS_KEY = 'kakeibo.assets.v1';
   const FLOW_KEY = 'kakeibo.flow.v1';
@@ -2515,7 +2714,10 @@
   migrateUsers();
   loadAssets();
   loadFlow();
+  loadUI();
   setupTabs();
+  attachChipDrag('expense-chart-order');
+  attachChipDrag('income-chart-order');
   document.getElementById('date').value = new Date().toISOString().slice(0, 10);
   setType('income');
   refreshBudgetCategorySelect();
