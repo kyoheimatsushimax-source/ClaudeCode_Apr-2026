@@ -1262,8 +1262,11 @@
 
     const monthIncomes = monthEntries.filter(e => e.type === 'income' && isFamily(e));
     const monthExpenses = monthEntries.filter(e => e.type === 'expense' && isFamily(e));
+    const fixedFlowTotal = (mk) => flow.items
+      .filter(x => x.group === '固定費')
+      .reduce((s, x) => s + flowAmountFor(x.id, mk), 0);
     const income = monthIncomes.reduce((s, e) => s + e.amount, 0);
-    const expense = monthExpenses.reduce((s, e) => s + e.amount, 0);
+    const expense = monthExpenses.reduce((s, e) => s + e.amount, 0) + fixedFlowTotal(monthKey);
     const bal = income - expense;
     const rate = income > 0 ? (bal / income) * 100 : null;
 
@@ -1271,7 +1274,7 @@
     const prevKey = ym(prev);
     const prevEntries = entries.filter(e => e.date.startsWith(prevKey) && isFamily(e));
     const prevIncome = prevEntries.filter(e => e.type === 'income').reduce((s, e) => s + e.amount, 0);
-    const prevExpense = prevEntries.filter(e => e.type === 'expense').reduce((s, e) => s + e.amount, 0);
+    const prevExpense = prevEntries.filter(e => e.type === 'expense').reduce((s, e) => s + e.amount, 0) + fixedFlowTotal(prevKey);
     const prevBal = prevIncome - prevExpense;
     const prevRate = prevIncome > 0 ? (prevBal / prevIncome) * 100 : null;
 
@@ -1434,7 +1437,8 @@
       labels.push((d.getMonth() + 1) + '月');
       const monthEntries = entries.filter(e => e.date.startsWith(key) && isFamily(e));
       const inc = monthEntries.filter(e => e.type === 'income').reduce((s, e) => s + e.amount, 0);
-      const exp = monthEntries.filter(e => e.type === 'expense').reduce((s, e) => s + e.amount, 0);
+      const fixed = flow.items.filter(x => x.group === '固定費').reduce((s, x) => s + flowAmountFor(x.id, key), 0);
+      const exp = monthEntries.filter(e => e.type === 'expense').reduce((s, e) => s + e.amount, 0) + fixed;
       incomes.push(inc);
       expenses.push(exp);
       balances.push(inc - exp);
