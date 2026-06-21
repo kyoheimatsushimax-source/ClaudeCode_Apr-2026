@@ -1540,10 +1540,10 @@
     document.querySelectorAll('th [data-income-arrow]').forEach(a => a.textContent = '');
     let sorted;
     if (incomeSort.key === 'custom') {
-      const orderMap = new Map(ui.incomeEntryOrder.map((id, i) => [id, i]));
+      const orderMap = new Map(ui.incomeEntryOrder.map((cat, i) => [cat, i]));
       sorted = items.slice().sort((a, b) => {
-        const ia = orderMap.has(a.id) ? orderMap.get(a.id) : Infinity;
-        const ib = orderMap.has(b.id) ? orderMap.get(b.id) : Infinity;
+        const ia = orderMap.has(a.category) ? orderMap.get(a.category) : Infinity;
+        const ib = orderMap.has(b.category) ? orderMap.get(b.category) : Infinity;
         if (ia !== ib) return ia - ib;
         return b.date.localeCompare(a.date) || b.id - a.id;
       });
@@ -1858,14 +1858,21 @@
       if (!tr || !srcId) return;
       e.preventDefault();
       const tgtId = Number(tr.dataset.incomeId);
+      const srcE = entries.find(x => x.id === srcId);
+      const tgtE = entries.find(x => x.id === tgtId);
+      if (!srcE || !tgtE || srcE.category === tgtE.category) return;
+      const srcCat = srcE.category;
+      const tgtCat = tgtE.category;
       const rect = tr.getBoundingClientRect();
       const above = (e.clientY - rect.top) < rect.height / 2;
       let list = ui.incomeEntryOrder.slice();
-      const allShownIds = Array.from(tbody.querySelectorAll('tr.draggable-row')).map(r => Number(r.dataset.incomeId));
-      for (const id of allShownIds) if (!list.includes(id)) list.push(id);
-      list = list.filter(id => id !== srcId);
-      const idx = list.indexOf(tgtId);
-      list.splice(above ? idx : idx + 1, 0, srcId);
+      const shownCats = Array.from(tbody.querySelectorAll('tr.draggable-row'))
+        .map(r => { const en = entries.find(x => x.id === Number(r.dataset.incomeId)); return en ? en.category : null; })
+        .filter(Boolean);
+      for (const c of shownCats) if (!list.includes(c)) list.push(c);
+      list = list.filter(c => c !== srcCat);
+      const idx = list.indexOf(tgtCat);
+      list.splice(above ? idx : idx + 1, 0, srcCat);
       ui.incomeEntryOrder = list;
       incomeSort.key = 'custom';
       saveUI();
