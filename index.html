@@ -1589,7 +1589,7 @@
     const byCat = {};
     expenseEntries.forEach(e => {
       const key = e.category === 'クレカ'
-        ? 'クレカ/' + (CC_SUBCATEGORIES.includes(e.subCategory) ? e.subCategory : classifyMerchant(e.memo))
+        ? (CC_SUBCATEGORIES.includes(e.subCategory) ? e.subCategory : classifyMerchant(e.memo))
         : e.category;
       byCat[key] = (byCat[key] || 0) + e.amount;
     });
@@ -1597,8 +1597,7 @@
     for (const it of flow.items.filter(x => x.group === '固定費')) {
       const amt = flowAmountFor(it.id, monthKey);
       if (amt > 0) {
-        const key = '固定費/' + it.name;
-        byCat[key] = (byCat[key] || 0) + amt;
+        byCat[it.name] = (byCat[it.name] || 0) + amt;
       }
     }
     const labels = Object.keys(byCat);
