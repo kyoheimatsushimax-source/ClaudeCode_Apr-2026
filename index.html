@@ -841,7 +841,27 @@
   </section>
 
   <section class="card form-card">
-    <h2>📋 明細 <span class="badge" id="entry-count">0件</span></h2>
+    <h2>💰 収入明細 (給与・補助金) <span class="badge" id="income-count">0件</span></h2>
+    <div id="income-wrap">
+      <table id="income-table">
+        <thead>
+          <tr>
+            <th>日付</th>
+            <th>カテゴリ</th>
+            <th>負担</th>
+            <th>メモ</th>
+            <th style="text-align:right">金額</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="income-body"></tbody>
+      </table>
+      <div class="empty" id="income-empty" style="display:none">この月の収入記録はまだありません</div>
+    </div>
+  </section>
+
+  <section class="card form-card">
+    <h2>📋 支出明細 <span class="badge" id="entry-count">0件</span></h2>
     <div class="entries-toolbar">
       <input type="search" id="entries-search" placeholder="メモ・カテゴリ・利用者・負担で検索…" />
       <span class="badge" id="entries-search-meta" style="display:none"></span>
@@ -1222,11 +1242,13 @@
     renderIncomeChart(monthIncomes);
     renderPersonal(monthEntries);
 
+    renderIncomeTable(monthEntries.filter(e => e.type === 'income'));
+
     const body = document.getElementById('entries-body');
     const empty = document.getElementById('empty-msg');
     const table = document.getElementById('entries-table');
     const q = entrySearch.trim().toLowerCase();
-    const filteredEntries = monthEntries.filter(e => {
+    const filteredEntries = monthEntries.filter(e => e.type === 'expense').filter(e => {
       if (!q) return true;
       const haystack = [e.date, e.category, e.memo, userOf(e) || '', payerOf(e)].join(' ').toLowerCase();
       return haystack.includes(q);
@@ -1244,7 +1266,7 @@
       return b.id - a.id;
     });
     document.getElementById('entry-count').textContent =
-      q ? `${sorted.length}件 / 全${monthEntries.length}件` : monthEntries.length + '件';
+      q ? `${sorted.length}件 / 全${monthEntries.filter(e => e.type === 'expense').length}件` : monthEntries.filter(e => e.type === 'expense').length + '件';
     const searchMeta = document.getElementById('entries-search-meta');
     if (q) { searchMeta.style.display = ''; searchMeta.textContent = `「${q}」`; }
     else { searchMeta.style.display = 'none'; }
@@ -1464,6 +1486,36 @@
       </div>`).join('');
   }
 
+  function renderIncomeTable(items) {
+    const body = document.getElementById('income-body');
+    const empty = document.getElementById('income-empty');
+    const table = document.getElementById('income-table');
+    document.getElementById('income-count').textContent = items.length + '件';
+    const sorted = items.slice().sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id);
+    if (sorted.length === 0) {
+      body.innerHTML = '';
+      table.style.display = 'none';
+      empty.style.display = 'block';
+      return;
+    }
+    table.style.display = '';
+    empty.style.display = 'none';
+    body.innerHTML = sorted.map(e => {
+      const p = payerOf(e);
+      const pcls = p === 'K' ? 'k' : p === 'C' ? 'c' : 'family';
+      const pOpts = PAYERS.map(v => `<option value="${v}"${v === p ? ' selected' : ''}>${v}</option>`).join('');
+      return `
+      <tr>
+        <td>${escapeHtml(e.date.slice(5).replace('-', '/'))}</td>
+        <td>${escapeHtml(e.category)}</td>
+        <td><select class="payer-select ${pcls}" data-payer-id="${Number(e.id)}">${pOpts}</select></td>
+        <td>${escapeHtml(e.memo || '')}</td>
+        <td class="amount income">+${fmt(e.amount)}</td>
+        <td><button class="delete-btn" data-id="${Number(e.id)}" title="削除">×</button></td>
+      </tr>`;
+    }).join('');
+  }
+
   function renderPersonal(monthEntries) {
     for (const person of ['K', 'C']) {
       const items = monthEntries.filter(e => e.type === 'expense' && payerOf(e) === person);
@@ -1584,16 +1636,7 @@
     render();
   });
 
-  document.getElementById('entries-body').addEventListener('click', (e) => {
-    if (e.target.classList.contains('delete-btn')) {
-      const id = Number(e.target.dataset.id);
-      if (confirm('この記録を削除しますか?')) {
-        entries = entries.filter(x => x.id !== id);
-        save();
-        render();
-      }
-    }
-  });
+  document.getElementById('entries-body').addEventListener('click', handleRowClick);
 
   document.getElementById('entries-search').addEventListener('input', (e) => {
     entrySearch = e.target.value;
@@ -1608,7 +1651,7 @@
     });
   });
 
-  document.getElementById('entries-body').addEventListener('change', (e) => {
+  function handleRowChange(e) {
     const payerId = e.target.dataset.payerId;
     const userId = e.target.dataset.userId;
     const subCatId = e.target.dataset.subcatId;
@@ -1623,7 +1666,20 @@
     else return;
     save();
     render();
-  });
+  }
+  function handleRowClick(e) {
+    if (e.target.classList.contains('delete-btn')) {
+      const id = Number(e.target.dataset.id);
+      if (confirm('この記録を削除しますか?')) {
+        entries = entries.filter(x => x.id !== id);
+        save();
+        render();
+      }
+    }
+  }
+  document.getElementById('entries-body').addEventListener('change', handleRowChange);
+  document.getElementById('income-body').addEventListener('change', handleRowChange);
+  document.getElementById('income-body').addEventListener('click', handleRowClick);
 
   document.getElementById('prev-month').addEventListener('click', () => {
     viewMonth.setMonth(viewMonth.getMonth() - 1);
