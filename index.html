@@ -504,15 +504,38 @@
   .accounts-group-head .total { color: var(--muted); font-weight: 600; font-size: 13px; font-variant-numeric: tabular-nums; }
   .account-row {
     display: grid;
-    grid-template-columns: 1fr 140px 80px 30px;
+    grid-template-columns: 16px 1fr 110px 120px 110px 90px 30px;
     gap: 8px;
     align-items: center;
     padding: 8px 10px;
     border-bottom: 1px solid var(--border);
     font-size: 13px;
+    cursor: default;
   }
   .account-row .name { font-weight: 500; }
-  .account-row input[type="number"] { font-variant-numeric: tabular-nums; text-align: right; }
+  .account-row .prev-end, .account-row .this-end {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+  .account-row .prev-end { color: var(--muted); }
+  .account-row .this-end { font-weight: 700; }
+  .account-row input[type="text"], .account-row input[type="number"] {
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+    padding: 6px 8px;
+  }
+  .account-row.account-head {
+    padding-top: 4px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid var(--border);
+  }
+  .account-row.account-head .col-h {
+    font-size: 11px;
+    color: var(--muted);
+    text-align: right;
+    font-weight: 600;
+  }
+  .account-row.account-head[draggable] { cursor: default; }
   .account-add {
     display: grid;
     grid-template-columns: 100px 100px 1fr 140px auto;
@@ -522,15 +545,11 @@
   }
   @media (max-width: 720px) {
     .account-add { grid-template-columns: 1fr 1fr; }
-    .account-row { grid-template-columns: 1fr 100px 30px; }
-    .account-row .meta-col { display: none; }
-  }
-  .account-row {
-    grid-template-columns: 16px 1fr 90px 140px 100px 30px !important;
-    cursor: default;
-  }
-  @media (max-width: 720px) {
-    .account-row { grid-template-columns: 16px 1fr 100px 30px !important; }
+    .account-row {
+      grid-template-columns: 16px 1fr 100px 100px 30px;
+    }
+    .account-row .prev-end, .account-row .meta-col { display: none; }
+    .account-row.account-head .col-h.meta-col { display: none; }
   }
   .drag-handle {
     color: var(--muted);
@@ -1072,7 +1091,7 @@
         <input type="text" id="acc-name" placeholder="例: 楽天銀行 / SBI証券 / 住宅ローン" />
       </div>
       <div>
-        <label for="acc-balance">今月の残高</label>
+        <label for="acc-balance">今月末残高</label>
         <input type="number" id="acc-balance" min="0" step="0.01" placeholder="0" />
       </div>
       <button type="button" class="primary" id="acc-add-btn" style="width:auto;">追加</button>
@@ -2466,6 +2485,22 @@
     saveAssets();
   }
 
+  function prevMonthKey(monthKey) {
+    const [y, m] = monthKey.split('-').map(Number);
+    const d = new Date(y, m - 2, 1);
+    return ym(d);
+  }
+  function numComma(n) {
+    const v = Math.round(n * 100) / 100;
+    return v.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+  }
+  function parseNumInput(str) {
+    if (str == null) return NaN;
+    const s = String(str).replace(/[,¥￥\s]/g, '').replace(/[−－]/g, '-');
+    if (s === '' || s === '-') return 0;
+    return Number(s);
+  }
+
   function addAccount(type, name, currency, balance) {
     if (!['預金', '投資', '負債'].includes(type)) return;
     if (!CURRENCIES.includes(currency)) currency = 'JPY';
@@ -2533,6 +2568,7 @@
     if (missingRate) {
       html += `<div style="color:var(--expense);font-size:12px;padding:8px 0;">⚠ 外貨レートが未設定の通貨があります。上の為替レート欄に入力してください。</div>`;
     }
+    const prevKey = prevMonthKey(monthKey);
     for (const type of ['預金', '投資', '負債']) {
       const list = groups[type];
       html += `<div class="accounts-group">
@@ -2540,15 +2576,27 @@
       if (list.length === 0) {
         html += `<div style="font-size:12px;color:var(--muted);padding:8px 0;">この区分の口座はまだありません</div>`;
       } else {
+        html += `<div class="account-row account-head">
+          <span></span><span class="name">口座</span>
+          <span class="col-h prev-end">前月末残高</span>
+          <span class="col-h">今月の増減</span>
+          <span class="col-h">今月末残高</span>
+          <span class="meta-col col-h">円換算</span>
+          <span></span>
+        </div>`;
         for (const a of list) {
-          const bal = balanceFor(a.id, monthKey);
-          const jpy = toJPY(bal, a.currency, monthKey);
+          const prevEnd = balanceFor(a.id, prevKey);
+          const thisEnd = balanceFor(a.id, monthKey);
+          const delta = thisEnd - prevEnd;
+          const jpy = toJPY(thisEnd, a.currency, monthKey);
           const jpyLabel = a.currency === 'JPY' ? '' : (jpy === null ? '(レート未設定)' : '= ' + fmt(jpy));
+          const deltaStr = (delta > 0 ? '+' : '') + numComma(delta);
           html += `<div class="account-row" draggable="true" data-acc-id="${a.id}" data-acc-type="${escapeHtml(a.type)}">
             <span class="drag-handle" title="ドラッグで並べ替え">⋮⋮</span>
-            <span class="name">${escapeHtml(a.name)}</span>
-            <span class="currency-badge">${a.currency}</span>
-            <input type="number" min="0" step="0.01" value="${bal}" data-acc-balance="${a.id}" />
+            <span class="name">${escapeHtml(a.name)} <span class="currency-badge">${a.currency}</span></span>
+            <span class="prev-end">${numComma(prevEnd)}</span>
+            <input type="text" inputmode="decimal" value="${deltaStr}" data-acc-delta="${a.id}" data-prev-end="${prevEnd}" />
+            <span class="this-end">${numComma(thisEnd)}</span>
             <span class="meta-col jpy-eq">${jpyLabel}</span>
             <button type="button" class="delete-btn" data-acc-delete="${a.id}" title="削除">×</button>
           </div>`;
@@ -2667,11 +2715,12 @@
     });
 
     document.getElementById('accounts-list').addEventListener('change', (e) => {
-      const id = e.target.dataset.accBalance;
+      const id = e.target.dataset.accDelta;
       if (!id) return;
-      const v = parseFloat(e.target.value || '0');
-      if (!Number.isFinite(v)) return;
-      setBalance(id, ym(viewMonth), Math.max(0, v));
+      const delta = parseNumInput(e.target.value);
+      if (!Number.isFinite(delta)) { renderStock(); return; }
+      const prevEnd = parseFloat(e.target.dataset.prevEnd || '0') || 0;
+      setBalance(id, ym(viewMonth), prevEnd + delta);
       renderStock();
     });
 
