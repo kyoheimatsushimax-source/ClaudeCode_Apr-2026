@@ -1647,10 +1647,14 @@
     document.querySelectorAll('th [data-income-arrow]').forEach(a => a.textContent = '');
     let sorted;
     if (incomeSort.key === 'custom') {
-      const orderMap = new Map(ui.incomeEntryOrder.map((cat, i) => [cat, i]));
+      const catMap = new Map(ui.incomeEntryOrder.map((cat, i) => [cat, i]));
+      const idMap = new Map(ui.incomeIdOrder.map((id, i) => [Number(id), i]));
       sorted = items.slice().sort((a, b) => {
-        const ia = orderMap.has(a.category) ? orderMap.get(a.category) : Infinity;
-        const ib = orderMap.has(b.category) ? orderMap.get(b.category) : Infinity;
+        const ca = catMap.has(a.category) ? catMap.get(a.category) : Infinity;
+        const cb = catMap.has(b.category) ? catMap.get(b.category) : Infinity;
+        if (ca !== cb) return ca - cb;
+        const ia = idMap.has(a.id) ? idMap.get(a.id) : Infinity;
+        const ib = idMap.has(b.id) ? idMap.get(b.id) : Infinity;
         if (ia !== ib) return ia - ib;
         return b.date.localeCompare(a.date) || b.id - a.id;
       });
@@ -1961,6 +1965,9 @@
       } else if (iKey) {
         if (incomeSort.key === iKey) incomeSort.dir = incomeSort.dir === 'asc' ? 'desc' : 'asc';
         else { incomeSort.key = iKey; incomeSort.dir = iKey === 'amount' || iKey === 'date' ? 'desc' : 'asc'; }
+        ui.incomeSortKey = incomeSort.key;
+        ui.incomeSortDir = incomeSort.dir;
+        saveUI();
       }
       render();
     });
@@ -2095,23 +2102,34 @@
       if (!tr || !srcId) return;
       e.preventDefault();
       const tgtId = Number(tr.dataset.incomeId);
+      if (tgtId === srcId) return;
       const srcE = entries.find(x => x.id === srcId);
       const tgtE = entries.find(x => x.id === tgtId);
-      if (!srcE || !tgtE || srcE.category === tgtE.category) return;
-      const srcCat = srcE.category;
-      const tgtCat = tgtE.category;
+      if (!srcE || !tgtE) return;
       const rect = tr.getBoundingClientRect();
       const above = (e.clientY - rect.top) < rect.height / 2;
-      let list = ui.incomeEntryOrder.slice();
-      const shownCats = Array.from(tbody.querySelectorAll('tr.draggable-row'))
-        .map(r => { const en = entries.find(x => x.id === Number(r.dataset.incomeId)); return en ? en.category : null; })
-        .filter(Boolean);
-      for (const c of shownCats) if (!list.includes(c)) list.push(c);
-      list = list.filter(c => c !== srcCat);
-      const idx = list.indexOf(tgtCat);
-      list.splice(above ? idx : idx + 1, 0, srcCat);
-      ui.incomeEntryOrder = list;
+      const shownIds = Array.from(tbody.querySelectorAll('tr.draggable-row')).map(r => Number(r.dataset.incomeId));
+
+      if (srcE.category !== tgtE.category) {
+        // cross-category: reorder category list (global, applies all months)
+        let list = ui.incomeEntryOrder.slice();
+        const shownCats = Array.from(new Set(shownIds.map(id => { const en = entries.find(x => x.id === id); return en ? en.category : null; }).filter(Boolean)));
+        for (const c of shownCats) if (!list.includes(c)) list.push(c);
+        list = list.filter(c => c !== srcE.category);
+        const idx = list.indexOf(tgtE.category);
+        list.splice(above ? idx : idx + 1, 0, srcE.category);
+        ui.incomeEntryOrder = list;
+      }
+      // always also reorder entry-id list (handles same-category swaps and breaks ties)
+      let idList = ui.incomeIdOrder.slice();
+      for (const id of shownIds) if (!idList.includes(id)) idList.push(id);
+      idList = idList.filter(id => id !== srcId);
+      const iidx = idList.indexOf(tgtId);
+      idList.splice(above ? iidx : iidx + 1, 0, srcId);
+      ui.incomeIdOrder = idList;
+
       incomeSort.key = 'custom';
+      ui.incomeSortKey = 'custom';
       saveUI();
       render();
     });
@@ -2489,7 +2507,7 @@
   });
 
   const UI_KEY = 'kakeibo.ui.v1';
-  let ui = { incomeChartOrder: [], expenseChartOrder: [], incomeEntryOrder: [] };
+  let ui = { incomeChartOrder: [], expenseChartOrder: [], incomeEntryOrder: [], incomeIdOrder: [], incomeSortKey: 'date', incomeSortDir: 'desc' };
   function loadUI() {
     try {
       const raw = JSON.parse(localStorage.getItem(UI_KEY));
@@ -2497,6 +2515,9 @@
         ui.incomeChartOrder = Array.isArray(raw.incomeChartOrder) ? raw.incomeChartOrder : [];
         ui.expenseChartOrder = Array.isArray(raw.expenseChartOrder) ? raw.expenseChartOrder : [];
         ui.incomeEntryOrder = Array.isArray(raw.incomeEntryOrder) ? raw.incomeEntryOrder : [];
+        ui.incomeIdOrder = Array.isArray(raw.incomeIdOrder) ? raw.incomeIdOrder : [];
+        if (typeof raw.incomeSortKey === 'string') ui.incomeSortKey = raw.incomeSortKey;
+        if (raw.incomeSortDir === 'asc' || raw.incomeSortDir === 'desc') ui.incomeSortDir = raw.incomeSortDir;
       }
     } catch {}
   }
@@ -2592,7 +2613,7 @@
   let activeTab = 'dashboard';
   let entrySort = { key: 'date', dir: 'desc' };
   let entrySearch = '';
-  let incomeSort = { key: 'date', dir: 'desc' };
+  let incomeSort = { key: 'date', dir: 'desc' }; // overwritten in initFromUI()
 
   function loadAssets() {
     try {
@@ -3104,6 +3125,8 @@
   loadAssets();
   loadFlow();
   loadUI();
+  incomeSort.key = ui.incomeSortKey || 'date';
+  incomeSort.dir = ui.incomeSortDir || 'desc';
   setupTabs();
   attachChipDrag('expense-chart-order');
   attachChipDrag('income-chart-order');
