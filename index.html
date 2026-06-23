@@ -1022,7 +1022,7 @@
     <div class="flow-item-list" id="flow-fixed-list"></div>
     <div class="flow-add">
       <input type="text" id="flow-fixed-name" placeholder="項目名 (例: 家賃 / NHK / Netflix)" />
-      <input type="number" id="flow-fixed-amount" min="0" step="1" placeholder="金額 (円)" />
+      <input type="text" inputmode="numeric" id="flow-fixed-amount" placeholder="金額 (円)" />
       <button type="button" class="primary" id="flow-fixed-add" style="width:auto;">追加</button>
     </div>
   </section>
@@ -1032,7 +1032,7 @@
     <div class="flow-item-list" id="flow-variable-list"></div>
     <div class="flow-add">
       <input type="text" id="flow-variable-name" placeholder="項目名 (例: 食費 / 外食 / ガソリン)" />
-      <input type="number" id="flow-variable-amount" min="0" step="1" placeholder="金額 (円)" />
+      <input type="text" inputmode="numeric" id="flow-variable-amount" placeholder="金額 (円)" />
       <button type="button" class="primary" id="flow-variable-add" style="width:auto;">追加</button>
     </div>
     <p style="font-size:12px; color: var(--muted); margin-top: 12px;">
@@ -1962,6 +1962,9 @@
       if (eKey) {
         if (entrySort.key === eKey) entrySort.dir = entrySort.dir === 'asc' ? 'desc' : 'asc';
         else { entrySort.key = eKey; entrySort.dir = eKey === 'amount' || eKey === 'date' ? 'desc' : 'asc'; }
+        ui.entrySortKey = entrySort.key;
+        ui.entrySortDir = entrySort.dir;
+        saveUI();
       } else if (iKey) {
         if (incomeSort.key === iKey) incomeSort.dir = incomeSort.dir === 'asc' ? 'desc' : 'asc';
         else { incomeSort.key = iKey; incomeSort.dir = iKey === 'amount' || iKey === 'date' ? 'desc' : 'asc'; }
@@ -2507,7 +2510,7 @@
   });
 
   const UI_KEY = 'kakeibo.ui.v1';
-  let ui = { incomeChartOrder: [], expenseChartOrder: [], incomeEntryOrder: [], incomeIdOrder: [], incomeSortKey: 'date', incomeSortDir: 'desc' };
+  let ui = { incomeChartOrder: [], expenseChartOrder: [], incomeEntryOrder: [], incomeIdOrder: [], incomeSortKey: 'date', incomeSortDir: 'desc', entrySortKey: 'date', entrySortDir: 'desc' };
   function loadUI() {
     try {
       const raw = JSON.parse(localStorage.getItem(UI_KEY));
@@ -2518,6 +2521,8 @@
         ui.incomeIdOrder = Array.isArray(raw.incomeIdOrder) ? raw.incomeIdOrder : [];
         if (typeof raw.incomeSortKey === 'string') ui.incomeSortKey = raw.incomeSortKey;
         if (raw.incomeSortDir === 'asc' || raw.incomeSortDir === 'desc') ui.incomeSortDir = raw.incomeSortDir;
+        if (typeof raw.entrySortKey === 'string') ui.entrySortKey = raw.entrySortKey;
+        if (raw.entrySortDir === 'asc' || raw.entrySortDir === 'desc') ui.entrySortDir = raw.entrySortDir;
       }
     } catch {}
   }
@@ -2914,7 +2919,7 @@
       <div class="flow-item-row" draggable="true" data-flow-id="${it.id}" data-flow-group="${escapeHtml(it.group)}">
         <span class="drag-handle" title="ドラッグで並べ替え">⋮⋮</span>
         <input type="text" value="${escapeHtml(it.name)}" data-flow-name="${it.id}" />
-        <input type="number" min="0" step="1" value="${flowAmountFor(it.id, monthKey)}" data-flow-amount="${it.id}" />
+        <input type="text" inputmode="numeric" value="${numComma(flowAmountFor(it.id, monthKey))}" data-flow-amount="${it.id}" />
         <button type="button" class="delete-btn" data-flow-delete="${it.id}" title="削除">×</button>
       </div>`).join('');
   }
@@ -3041,7 +3046,7 @@
         const nameEl = document.getElementById(`flow-${group}-name`);
         const amtEl = document.getElementById(`flow-${group}-amount`);
         const name = nameEl.value.trim();
-        const amount = parseInt(amtEl.value || '0', 10) || 0;
+        const amount = Math.round(parseNumInput(amtEl.value)) || 0;
         if (!name) { alert('項目名を入力してください'); return; }
         addFlowItem(g, name, amount);
         nameEl.value = '';
@@ -3055,7 +3060,7 @@
       flowList.addEventListener('change', (e) => {
         const t = e.target;
         if (t.dataset.flowAmount) {
-          setFlowAmount(t.dataset.flowAmount, ym(viewMonth), parseInt(t.value || '0', 10));
+          setFlowAmount(t.dataset.flowAmount, ym(viewMonth), Math.round(parseNumInput(t.value)));
           renderFlow();
         } else if (t.dataset.flowName) {
           renameFlowItem(t.dataset.flowName, t.value);
@@ -3127,6 +3132,8 @@
   loadUI();
   incomeSort.key = ui.incomeSortKey || 'date';
   incomeSort.dir = ui.incomeSortDir || 'desc';
+  entrySort.key = ui.entrySortKey || 'date';
+  entrySort.dir = ui.entrySortDir || 'desc';
   setupTabs();
   attachChipDrag('expense-chart-order');
   attachChipDrag('income-chart-order');
