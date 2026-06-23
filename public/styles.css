@@ -147,3 +147,40 @@ tbody tr:hover { background: var(--surface-2); }
 
 a.linkish { color: var(--accent); cursor: pointer; text-decoration: none; }
 a.linkish:hover { text-decoration: underline; }
+
+/* ---- Login ---- */
+.tabs button.logout { margin-left: auto; color: var(--muted); }
+.tabs button.logout:hover { color: var(--red); }
+.login-screen {
+  position: fixed; inset: 0; background: var(--bg);
+  display: flex; align-items: center; justify-content: center; z-index: 200; padding: 20px;
+}
+.login-card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+  padding: 32px 28px; width: 100%; max-width: 360px; text-align: center; box-shadow: var(--shadow);
+}
+.login-card .logo { color: var(--accent); font-size: 30px; }
+.login-card h2 { margin: 8px 0 4px; font-size: 18px; }
+.login-card p { margin: 0 0 18px; }
+.login-card input {
+  width: 100%; background: var(--bg); color: var(--text);
+  border: 1px solid var(--border); border-radius: 8px; padding: 11px 13px;
+  font-size: 15px; margin-bottom: 12px;
+}
+.login-error { color: var(--red); font-size: 13px; margin-bottom: 12px; }
+
+/* ---- Mobile ---- */
+@media (max-width: 640px) {
+  main { padding: 14px; }
+  .brand h1 { font-size: 15px; }
+  .tabs { gap: 0; }
+  .tabs button { padding: 9px 10px; font-size: 13px; }
+  .tabs button.logout { width: 100%; text-align: left; padding-left: 10px; }
+  .card { padding: 12px; }
+  /* 横スクロールでテーブルを閲覧可能に */
+  .card:has(table) { overflow-x: auto; padding: 0; }
+  table { min-width: 560px; }
+  .grid[style*="1fr 1fr"] { grid-template-columns: 1fr !important; }
+  .modal-overlay { padding: 20px 10px; }
+  .field.inline { flex-direction: column; gap: 0; }
+}

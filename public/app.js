@@ -14,6 +14,7 @@ function mk(method, body) {
 }
 async function handle(resp) {
   const data = await resp.json().catch(() => ({}));
+  if (resp.status === 401) { showLogin(); throw new Error('要ログイン'); }
   if (!resp.ok) throw new Error(data.error || resp.statusText);
   return data;
 }
@@ -102,6 +103,24 @@ views.dashboard = async function () {
   const t = d.totals;
   const sc = Object.fromEntries(d.statusCounts.map((r) => [r.status, r.count]));
   const donePct = t.total ? Math.round((t.done / t.total) * 100) : 0;
+
+  if (membersCache.length === 0 && (t.total || 0) === 0) {
+    app.innerHTML = `
+      <div class="section-head"><h2>ダッシュボード</h2></div>
+      <div class="empty">
+        <p>まだデータがありません。</p>
+        <div class="row" style="justify-content:center;gap:10px">
+          <button class="btn" id="go-members">メンバーを追加</button>
+          <button class="btn ghost" id="seed-btn">サンプルデータを投入</button>
+        </div>
+      </div>`;
+    document.getElementById('go-members').onclick = () => navigate('members');
+    document.getElementById('seed-btn').onclick = async () => {
+      try { await api.post('/api/seed', {}); toast('サンプルデータを投入しました'); navigate('dashboard'); refreshBadge(); }
+      catch (err) { toast('エラー: ' + err.message); }
+    };
+    return;
+  }
 
   app.innerHTML = `
     <div class="section-head"><h2>ダッシュボード</h2></div>
@@ -474,8 +493,55 @@ async function refreshBadge() {
 }
 
 // =========================================================================
+//  認証（簡易パスワード）
+// =========================================================================
+const loginScreen = document.getElementById('login-screen');
+const loginForm = document.getElementById('login-form');
+const loginError = document.getElementById('login-error');
+
+function showLogin() {
+  loginScreen.classList.remove('hidden');
+  document.getElementById('login-pass').focus();
+}
+function hideLogin() { loginScreen.classList.add('hidden'); }
+
+loginForm.onsubmit = async (e) => {
+  e.preventDefault();
+  loginError.classList.add('hidden');
+  const password = document.getElementById('login-pass').value;
+  try {
+    await api.post('/api/login', { password });
+    hideLogin();
+    document.getElementById('login-pass').value = '';
+    startApp();
+  } catch (err) {
+    loginError.textContent = err.message;
+    loginError.classList.remove('hidden');
+  }
+};
+
+document.getElementById('logout-btn').onclick = async () => {
+  await api.post('/api/logout', {});
+  location.reload();
+};
+
+// =========================================================================
 //  起動
 // =========================================================================
-navigate('dashboard');
-refreshBadge();
+function startApp() {
+  navigate('dashboard');
+  refreshBadge();
+}
+
+async function boot() {
+  let session = { authRequired: false, authed: true };
+  try { session = await fetch('/api/session').then((r) => r.json()); } catch (_) {}
+  if (session.authRequired) {
+    document.getElementById('logout-btn').classList.remove('hidden');
+    if (!session.authed) { showLogin(); return; }
+  }
+  startApp();
+}
+
+boot();
 setInterval(refreshBadge, 60000);

@@ -1,6 +1,7 @@
 # チームミッション管理 (Team Mission Manager)
 
 部下のミッション・アサイン業務を一元管理する、管理者向けの Web アプリです。
+**Vercel + Postgres** で動作し、スマホからも閲覧・編集できます。
 
 ## 主な機能
 
@@ -10,32 +11,67 @@
 | 📊 進捗ダッシュボード | 全体の完了率、ステータス内訳、メンバー別の負荷を可視化。 |
 | 🗣 1on1・評価記録 | メンバーごとの面談メモ・評価(★)・ネクストアクションを蓄積。 |
 | 🔔 通知・リマインド | 期限超過・期限間近・ブロック中・未アサインを自動抽出。ヘッダーに件数バッジ。 |
+| 🔒 簡易パスワード認証 | `APP_PASSWORD` を設定すると、ログインしないと閲覧・編集できません。 |
+
+スマホ対応（レスポンシブ）。
 
 ## 技術構成
 
-- **バックエンド**: Node.js + Express 5（REST API）
-- **データベース**: SQLite（`better-sqlite3`、`data/app.db` に保存）
-- **フロントエンド**: 素の HTML/CSS/JavaScript の SPA（ビルド工程なし）
+- **フロントエンド**: 素の HTML/CSS/JavaScript の SPA（ビルド工程なし、`public/`）
+- **バックエンド**: Node.js + Express 5（REST API、`src/app.js`）
+- **データベース**: PostgreSQL（`pg` ドライバ。Vercel Postgres / Neon を想定）
+- **ホスティング**: Vercel（API はサーバーレス関数 `api/index.js`、静的配信は `public/`）
 
-依存は最小限で、ビルドツールなしに `npm install` → `npm start` だけで動きます。
+---
 
-## セットアップ
+## Vercel へのデプロイ手順（スマホから使う）
+
+### 1. データベースを用意する（Vercel Postgres / Neon）
+1. Vercel のプロジェクト → **Storage** タブ → **Create Database** → **Postgres (Neon)** を作成。
+2. 作成したDBをこのプロジェクトに **Connect** する。
+   → `POSTGRES_URL` などの環境変数が自動で設定されます。
+
+### 2. パスワードを設定する
+Vercel のプロジェクト → **Settings → Environment Variables** で以下を追加：
+
+| 変数 | 値 | 説明 |
+| --- | --- | --- |
+| `APP_PASSWORD` | 任意のパスワード | ログイン用。未設定だと誰でもアクセス可になります。 |
+
+### 3. デプロイ
+`main`（または対象ブランチ）に push すれば Vercel が自動デプロイします。
+表示された URL をスマホのブラウザで開き、設定したパスワードでログインしてください。
+
+### 4. 初期データ
+初回アクセス時はデータが空です。ダッシュボードの
+**「メンバーを追加」** から登録するか、**「サンプルデータを投入」** で試せます。
+
+---
+
+## ローカル開発
+
+ローカルでも PostgreSQL が必要です（Neon の接続文字列をそのまま使ってもOK）。
 
 ```bash
-npm install        # 依存インストール
-npm run seed       # （任意）サンプルデータ投入
-npm start          # サーバ起動 → http://localhost:3000
+npm install
+export POSTGRES_URL="postgresql://user:pass@host:5432/dbname"
+export APP_PASSWORD="任意"          # 省略すると認証なしで起動
+npm run seed                        # （任意）サンプルデータ投入
+npm start                           # → http://localhost:3000
 ```
 
-開発時はファイル変更を監視する `npm run dev` も利用できます。
+ファイル監視つきの `npm run dev` も利用できます。
 
 ### 環境変数
 
 | 変数 | 既定値 | 説明 |
 | --- | --- | --- |
-| `PORT` | `3000` | 待ち受けポート |
-| `DATA_DIR` | `./data` | DB ファイルの保存先ディレクトリ |
-| `DB_PATH` | `./data/app.db` | DB ファイルのパス（直接指定する場合） |
+| `POSTGRES_URL` / `DATABASE_URL` | （必須） | Postgres 接続文字列 |
+| `APP_PASSWORD` | （空） | ログインパスワード。未設定なら認証なし |
+| `PORT` | `3000` | ローカルの待ち受けポート |
+| `PGSSL` | — | `1` で SSL 接続を強制（マネージドDBは自動判定） |
+
+---
 
 ## データモデル
 
@@ -43,9 +79,14 @@ npm start          # サーバ起動 → http://localhost:3000
 - **tasks** — ミッション/タスク: タイトル / 詳細 / 担当 / ステータス / 優先度 / 進捗 / 期限
 - **records** — 面談記録: メンバー / 種別(1on1・評価・メモ) / 日付 / 評価 / サマリ / ネクストアクション
 
+スキーマはアプリ起動時に自動作成されます（`CREATE TABLE IF NOT EXISTS`）。
+
 ## API 概要
 
 ```
+GET    /api/session              認証状態の確認
+POST   /api/login                ログイン（{ password }）
+POST   /api/logout               ログアウト
 GET    /api/dashboard            ダッシュボード集計
 GET    /api/reminders            リマインド対象（?days=N で期限間近の日数）
 GET    /api/members              メンバー一覧
@@ -60,10 +101,6 @@ DELETE /api/tasks/:id            タスク削除
 GET    /api/records              記録一覧（?member_id=&type=）
 POST   /api/records              記録作成
 DELETE /api/records/:id          記録削除
+POST   /api/seed                 サンプルデータ投入（空のときのみ）
 ```
-
-## 注意
-
-現状は単一管理者での利用を前提としており、認証は実装していません。
-社内ネットワークや個人環境での利用を想定しています。外部公開する場合は
-リバースプロキシでの Basic 認証などを併用してください。
+（`/api/login`・`/api/logout`・`/api/session` 以外は要ログイン）

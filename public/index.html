@@ -18,8 +18,21 @@
       <button data-view="members">メンバー</button>
       <button data-view="records">1on1・評価</button>
       <button data-view="reminders">通知 <span id="reminder-badge" class="badge hidden">0</span></button>
+      <button id="logout-btn" class="logout hidden">ログアウト</button>
     </nav>
   </header>
+
+  <!-- ログイン画面 -->
+  <div id="login-screen" class="login-screen hidden">
+    <form id="login-form" class="login-card">
+      <span class="logo">◆</span>
+      <h2>チームミッション管理</h2>
+      <p class="muted">続けるにはパスワードを入力してください</p>
+      <input type="password" id="login-pass" placeholder="パスワード" autocomplete="current-password" />
+      <div id="login-error" class="login-error hidden"></div>
+      <button type="submit" class="btn" style="width:100%">ログイン</button>
+    </form>
+  </div>
 
   <main id="app"></main>
 
