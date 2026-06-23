@@ -620,6 +620,43 @@
   th.sortable .arrow { color: var(--primary); margin-left: 2px; font-size: 10px; }
   td.amount.refund { color: var(--income); }
   td.amount.refund::before { content: '↩ '; font-size: 11px; }
+  .undo-toast {
+    position: fixed;
+    left: 50%;
+    bottom: 24px;
+    transform: translateX(-50%);
+    background: #1f2937;
+    color: white;
+    padding: 12px 16px;
+    border-radius: 10px;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.25);
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    z-index: 200;
+    font-size: 14px;
+  }
+  .undo-toast button {
+    background: transparent;
+    border: 1px solid rgba(255,255,255,0.4);
+    color: #93c5fd;
+    border-radius: 6px;
+    padding: 4px 12px;
+    cursor: pointer;
+    font-weight: 600;
+    width: auto;
+  }
+  .undo-toast button:hover { background: rgba(255,255,255,0.1); }
+  .row-edit-btn {
+    background: transparent;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    padding: 4px 6px;
+    font-size: 14px;
+    width: auto;
+  }
+  .row-edit-btn:hover { color: var(--primary); }
   .chart-order {
     display: flex;
     flex-wrap: wrap;
@@ -1019,10 +1056,18 @@
     </div>
   </section>
 
-  <section class="card form-card">
-    <h2>📊 純資産の推移</h2>
-    <div class="chart-container">
-      <canvas id="networth-chart"></canvas>
+  <section class="form-card grid-2">
+    <div class="card">
+      <h2>🥧 資産配分</h2>
+      <div class="chart-container">
+        <canvas id="allocation-chart"></canvas>
+      </div>
+    </div>
+    <div class="card">
+      <h2>📊 純資産の推移</h2>
+      <div class="chart-container">
+        <canvas id="networth-chart"></canvas>
+      </div>
     </div>
   </section>
 
@@ -1046,7 +1091,9 @@
   </section>
 
   <section class="card form-card">
-    <h2>💼 口座一覧</h2>
+    <h2>💼 口座一覧
+      <button type="button" id="transfer-btn" style="width:auto;padding:4px 12px;font-size:12px;margin-left:8px;">⇄ 振替を記録</button>
+    </h2>
     <div id="accounts-list"></div>
     <div class="account-add">
       <div>
@@ -1106,6 +1153,51 @@
       <button type="button" class="primary" id="cc-confirm">登録する</button>
     </div>
   </div>
+</div>
+
+<div id="edit-overlay" class="modal-overlay" style="display:none">
+  <div class="modal">
+    <h2 id="edit-title">明細を編集</h2>
+    <div class="modal-body">
+      <label for="edit-date">日付</label>
+      <input type="date" id="edit-date" />
+      <label for="edit-category">カテゴリ</label>
+      <select id="edit-category"></select>
+      <label for="edit-memo">メモ</label>
+      <input type="text" id="edit-memo" placeholder="メモ" />
+      <label for="edit-amount">金額</label>
+      <input type="text" id="edit-amount" inputmode="numeric" placeholder="0" />
+    </div>
+    <div class="modal-actions">
+      <button type="button" id="edit-cancel">キャンセル</button>
+      <button type="button" class="primary" id="edit-save">保存</button>
+    </div>
+  </div>
+</div>
+
+<div id="transfer-overlay" class="modal-overlay" style="display:none">
+  <div class="modal">
+    <h2>口座間の振替</h2>
+    <p style="font-size:12px;color:var(--muted);margin:0 0 12px;">資産の移動を記録します (収入・支出には影響しません)。例: 預金→投資の積立。</p>
+    <div class="modal-body">
+      <label for="transfer-from">振替元 (減る口座)</label>
+      <select id="transfer-from"></select>
+      <label for="transfer-to">振替先 (増える口座)</label>
+      <select id="transfer-to"></select>
+      <label for="transfer-amount">金額 (振替元の通貨)</label>
+      <input type="text" id="transfer-amount" inputmode="decimal" placeholder="0" />
+      <div id="transfer-note" style="font-size:11px;color:var(--muted);margin-top:6px;"></div>
+    </div>
+    <div class="modal-actions">
+      <button type="button" id="transfer-cancel">キャンセル</button>
+      <button type="button" class="primary" id="transfer-save">振替を記録</button>
+    </div>
+  </div>
+</div>
+
+<div id="undo-toast" class="undo-toast" style="display:none">
+  <span id="undo-toast-msg"></span>
+  <button type="button" id="undo-toast-btn">元に戻す</button>
 </div>
 
 <script>
@@ -1395,7 +1487,7 @@
           <td>${categoryCell}</td>
           <td>${escapeHtml(e.memo || '')}</td>
           <td class="amount ${amtCls}" title="${amtTitle}">${sign}${fmt(Math.abs(e.amount))}</td>
-          <td><button class="delete-btn" data-id="${Number(e.id)}" title="削除">×</button></td>
+          <td style="white-space:nowrap;"><button class="row-edit-btn" data-edit-id="${Number(e.id)}" title="編集">✎</button><button class="delete-btn" data-id="${Number(e.id)}" title="削除">×</button></td>
         </tr>`;
       }).join('');
     }
@@ -1559,7 +1651,7 @@
         <td><select class="payer-select ${pcls}" data-payer-id="${Number(e.id)}">${pOpts}</select></td>
         <td>${escapeHtml(e.memo || '')}</td>
         <td class="amount income">+${fmt(e.amount)}</td>
-        <td><button class="delete-btn" data-id="${Number(e.id)}" title="削除">×</button></td>
+        <td style="white-space:nowrap;"><button class="row-edit-btn" data-edit-id="${Number(e.id)}" title="編集">✎</button><button class="delete-btn" data-id="${Number(e.id)}" title="削除">×</button></td>
       </tr>`;
     }).join('');
   }
@@ -1855,16 +1947,81 @@
   function handleRowClick(e) {
     if (e.target.classList.contains('delete-btn')) {
       const id = Number(e.target.dataset.id);
-      if (confirm('この記録を削除しますか?')) {
-        entries = entries.filter(x => x.id !== id);
+      const idx = entries.findIndex(x => x.id === id);
+      if (idx < 0) return;
+      const removed = entries[idx];
+      entries.splice(idx, 1);
+      save();
+      render();
+      showUndo('1件を削除しました', () => {
+        entries.push(removed);
         save();
         render();
-      }
+      });
+    } else if (e.target.dataset.editId) {
+      openEditModal(Number(e.target.dataset.editId));
     }
   }
   document.getElementById('entries-body').addEventListener('change', handleRowChange);
   document.getElementById('income-body').addEventListener('change', handleRowChange);
   document.getElementById('income-body').addEventListener('click', handleRowClick);
+
+  // ---- Undo toast ----
+  let undoTimer = null;
+  function showUndo(msg, onUndo) {
+    const t = document.getElementById('undo-toast');
+    document.getElementById('undo-toast-msg').textContent = msg;
+    t.style.display = 'flex';
+    if (undoTimer) clearTimeout(undoTimer);
+    const btn = document.getElementById('undo-toast-btn');
+    const handler = () => { hideUndo(); onUndo(); };
+    btn.onclick = handler;
+    undoTimer = setTimeout(hideUndo, 6000);
+  }
+  function hideUndo() {
+    document.getElementById('undo-toast').style.display = 'none';
+    if (undoTimer) { clearTimeout(undoTimer); undoTimer = null; }
+  }
+
+  // ---- Edit modal ----
+  let editingId = null;
+  function openEditModal(id) {
+    const en = entries.find(x => x.id === id);
+    if (!en) return;
+    editingId = id;
+    document.getElementById('edit-date').value = en.date;
+    const sel = document.getElementById('edit-category');
+    const cats = allCategories(en.type);
+    if (!cats.includes(en.category)) cats.unshift(en.category);
+    sel.innerHTML = cats.map(c => `<option value="${escapeHtml(c)}"${c === en.category ? ' selected' : ''}>${escapeHtml(c)}</option>`).join('');
+    document.getElementById('edit-memo').value = en.memo || '';
+    document.getElementById('edit-amount').value = numComma(en.amount);
+    document.getElementById('edit-overlay').style.display = 'flex';
+  }
+  function closeEditModal() {
+    document.getElementById('edit-overlay').style.display = 'none';
+    editingId = null;
+  }
+  document.getElementById('edit-cancel').addEventListener('click', closeEditModal);
+  document.getElementById('edit-overlay').addEventListener('click', (e) => {
+    if (e.target.id === 'edit-overlay') closeEditModal();
+  });
+  document.getElementById('edit-save').addEventListener('click', () => {
+    const en = entries.find(x => x.id === editingId);
+    if (!en) return closeEditModal();
+    const date = document.getElementById('edit-date').value;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) { alert('日付を入力してください'); return; }
+    const amount = parseNumInput(document.getElementById('edit-amount').value);
+    if (!Number.isFinite(amount) || amount === 0) { alert('金額を入力してください'); return; }
+    en.date = date;
+    en.category = document.getElementById('edit-category').value;
+    en.memo = document.getElementById('edit-memo').value.trim().slice(0, 200);
+    en.amount = Math.round(amount);
+    if (en.category === 'クレカ' && !CC_SUBCATEGORIES.includes(en.subCategory)) en.subCategory = classifyMerchant(en.memo);
+    save();
+    closeEditModal();
+    render();
+  });
 
   (function wireIncomeDrag() {
     const tbody = document.getElementById('income-body');
@@ -1929,6 +2086,14 @@
   document.getElementById('next-month').addEventListener('click', () => {
     viewMonth.setMonth(viewMonth.getMonth() + 1);
     render();
+  });
+  document.addEventListener('keydown', (e) => {
+    const tag = (e.target.tagName || '').toLowerCase();
+    if (tag === 'input' || tag === 'select' || tag === 'textarea') return;
+    if (document.getElementById('edit-overlay').style.display === 'flex') return;
+    if (document.getElementById('transfer-overlay').style.display === 'flex') return;
+    if (e.key === 'ArrowLeft') { viewMonth.setMonth(viewMonth.getMonth() - 1); render(); }
+    else if (e.key === 'ArrowRight') { viewMonth.setMonth(viewMonth.getMonth() + 1); render(); }
   });
 
   document.getElementById('export-btn').addEventListener('click', () => {
@@ -2356,6 +2521,7 @@
   }
   let assets = { accounts: [], snapshots: {}, rates: {} };
   let networthChart = null;
+  let allocationChart = null;
   let flowChart = null;
   let activeTab = 'dashboard';
   let entrySort = { key: 'date', dir: 'desc' };
@@ -2540,7 +2706,42 @@
     }
     listEl.innerHTML = html;
 
+    renderAllocationChart(totals);
     renderNetworthChart();
+  }
+
+  function openTransferModal() {
+    if (assets.accounts.length < 2) { alert('振替には2つ以上の口座が必要です'); return; }
+    const opts = assets.accounts.map(a => `<option value="${a.id}">${escapeHtml(a.name)} (${a.type}/${a.currency})</option>`).join('');
+    const fromSel = document.getElementById('transfer-from');
+    const toSel = document.getElementById('transfer-to');
+    fromSel.innerHTML = opts;
+    toSel.innerHTML = opts;
+    if (toSel.options.length > 1) toSel.selectedIndex = 1;
+    document.getElementById('transfer-amount').value = '';
+    document.getElementById('transfer-note').textContent = '';
+    document.getElementById('transfer-overlay').style.display = 'flex';
+  }
+
+  function renderAllocationChart(totals) {
+    const ctx = document.getElementById('allocation-chart').getContext('2d');
+    if (allocationChart) allocationChart.destroy();
+    const labels = ['預金', '投資'];
+    const data = [Math.max(0, totals['預金']), Math.max(0, totals['投資'])];
+    if (totals['負債'] > 0) { labels.push('負債'); data.push(totals['負債']); }
+    const sum = data.reduce((a, b) => a + b, 0);
+    if (sum <= 0) { ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height); return; }
+    allocationChart = new Chart(ctx, {
+      type: 'doughnut',
+      data: { labels, datasets: [{ data, backgroundColor: ['#10b981', '#3b82f6', '#ef4444'], borderWidth: 2, borderColor: '#fff' }] },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'right' },
+          tooltip: { callbacks: { label: (c) => `${c.label}: ${fmt(c.parsed)} (${((c.parsed / sum) * 100).toFixed(1)}%)` } },
+        },
+      },
+    });
   }
 
   function renderNetworthChart() {
@@ -2665,6 +2866,36 @@
     };
     document.getElementById('fx-usd').addEventListener('change', onFxChange('USD'));
     document.getElementById('fx-sgd').addEventListener('change', onFxChange('SGD'));
+
+    document.getElementById('transfer-btn').addEventListener('click', openTransferModal);
+    document.getElementById('transfer-cancel').addEventListener('click', () => {
+      document.getElementById('transfer-overlay').style.display = 'none';
+    });
+    document.getElementById('transfer-overlay').addEventListener('click', (e) => {
+      if (e.target.id === 'transfer-overlay') e.currentTarget.style.display = 'none';
+    });
+    const updTransferNote = () => {
+      const from = assets.accounts.find(a => a.id === document.getElementById('transfer-from').value);
+      const to = assets.accounts.find(a => a.id === document.getElementById('transfer-to').value);
+      const note = document.getElementById('transfer-note');
+      if (from && to && from.currency !== to.currency) {
+        note.textContent = `⚠ 通貨が異なります (${from.currency}→${to.currency})。金額は各口座の通貨で同額分を増減します。為替差は純資産推移に反映されます。`;
+      } else note.textContent = '';
+    };
+    document.getElementById('transfer-from').addEventListener('change', updTransferNote);
+    document.getElementById('transfer-to').addEventListener('change', updTransferNote);
+    document.getElementById('transfer-save').addEventListener('click', () => {
+      const fromId = document.getElementById('transfer-from').value;
+      const toId = document.getElementById('transfer-to').value;
+      const amt = parseNumInput(document.getElementById('transfer-amount').value);
+      if (!fromId || !toId || fromId === toId) { alert('異なる2口座を選んでください'); return; }
+      if (!Number.isFinite(amt) || amt <= 0) { alert('金額を入力してください'); return; }
+      const mk = ym(viewMonth);
+      setBalance(fromId, mk, balanceFor(fromId, mk) - amt);
+      setBalance(toId, mk, balanceFor(toId, mk) + amt);
+      document.getElementById('transfer-overlay').style.display = 'none';
+      renderStock();
+    });
 
     const listEl = document.getElementById('accounts-list');
     let dragSrcId = null;
