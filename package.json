@@ -1,0 +1,28 @@
+{
+  "name": "team-mission-manager",
+  "version": "1.0.0",
+  "description": "部下のミッション・アサイン業務を管理する管理者向けWebアプリ",
+  "main": "src/server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "seed": "node src/seed.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "http://local_proxy@127.0.0.1:35301/git/kyoheimatsushimax-source/ClaudeCode_Apr-2026"
+  },
+  "keywords": [
+    "team",
+    "task-management",
+    "mission",
+    "1on1"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^5.2.1",
+    "pg": "^8.22.0"
+  }
+}
