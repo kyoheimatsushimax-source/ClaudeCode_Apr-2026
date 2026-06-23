@@ -205,6 +205,8 @@
   .preview-table-wrap table { font-size: 12px; }
   .preview-table-wrap th { position: sticky; top: 0; background: var(--card); }
   .preview-table-wrap tr.dup { opacity: 0.4; background: #fef3c7; }
+  .preview-table-wrap tr.large { background: #fee2e2; }
+  .preview-table-wrap tr.large .amount { color: var(--expense); font-weight: 700; }
   .modal.wide { max-width: 640px; }
   .modal-stats { display: flex; gap: 16px; font-size: 13px; flex-wrap: wrap; margin-bottom: 8px; }
   .modal-stats span { color: var(--muted); }
@@ -913,6 +915,16 @@
     <div class="chart-container wide">
       <canvas id="yearly-chart"></canvas>
     </div>
+    <div id="year-projection" class="mini-stats" style="margin-top:14px;">
+      <div class="mini-stat">
+        <div class="mini-stat-label" id="yp-ytd-label">年初来 収支</div>
+        <div class="mini-stat-value" id="yp-ytd">¥0</div>
+      </div>
+      <div class="mini-stat">
+        <div class="mini-stat-label">年末 着地予測 (直近3ヶ月平均で延伸)</div>
+        <div class="mini-stat-value" id="yp-forecast">¥0</div>
+      </div>
+    </div>
   </section>
 
   <section class="card form-card">
@@ -1494,9 +1506,35 @@
 
     renderChart(monthEntries.filter(e => e.type === 'expense' && isFamily(e)));
     renderYearly();
+    renderYearProjection();
     renderCategoryTrend();
     if (activeTab === 'flow') renderFlow();
     if (activeTab === 'stock') renderStock();
+  }
+
+  function monthlyNet(key) {
+    const me = entries.filter(e => e.date.startsWith(key) && isFamily(e));
+    const inc = me.filter(e => e.type === 'income').reduce((s, e) => s + e.amount, 0);
+    const fixed = flow.items.filter(x => x.group === '固定費').reduce((s, x) => s + flowAmountFor(x.id, key), 0);
+    const exp = me.filter(e => e.type === 'expense').reduce((s, e) => s + e.amount, 0) + fixed;
+    return inc - exp;
+  }
+  function renderYearProjection() {
+    const year = viewMonth.getFullYear();
+    document.getElementById('yp-ytd-label').textContent = `${year}年 年初来 収支`;
+    let ytd = 0;
+    const monthsElapsed = viewMonth.getMonth() + 1; // Jan=1.. up to viewMonth
+    for (let m = 0; m < monthsElapsed; m++) ytd += monthlyNet(ym(new Date(year, m, 1)));
+    document.getElementById('yp-ytd').textContent = (ytd < 0 ? '-' : '') + fmt(Math.abs(ytd));
+    // recent 3-month average run rate (months up to viewMonth)
+    const recent = [];
+    for (let i = 0; i < 3; i++) recent.push(monthlyNet(ym(new Date(year, viewMonth.getMonth() - i, 1))));
+    const avg = recent.reduce((a, b) => a + b, 0) / recent.length;
+    const remaining = 12 - monthsElapsed;
+    const forecast = ytd + avg * remaining;
+    const fc = document.getElementById('yp-forecast');
+    fc.textContent = (forecast < 0 ? '-' : '') + fmt(Math.abs(forecast));
+    fc.style.color = forecast >= 0 ? 'var(--income)' : 'var(--expense)';
   }
 
   function renderYearly() {
@@ -2256,6 +2294,7 @@
   let pendingItems = [];
 
   function showCcPreview(items) {
+    items.forEach(i => { if (!CC_SUBCATEGORIES.includes(i.subCategory)) i.subCategory = classifyMerchant(i.memo); });
     pendingItems = items;
     document.getElementById('cc-payer').value = '家族';
     refreshCcPreview();
@@ -2266,28 +2305,38 @@
     const items = pendingItems;
     const payer = document.getElementById('cc-payer').value;
     const dupFlags = items.map(i => isDuplicate(i, payer));
-    const newCount = dupFlags.filter(f => !f).length;
+    const newItems = items.filter((i, idx) => !dupFlags[idx]);
+    const newCount = newItems.length;
     const dupCount = dupFlags.filter(f => f).length;
-    const total = items.reduce((s, i, idx) => dupFlags[idx] ? s : s + i.amount, 0);
+    const total = newItems.reduce((s, i) => s + i.amount, 0);
+    // large expense threshold from new positive amounts
+    const pos = newItems.map(i => i.amount).filter(a => a > 0);
+    const avg = pos.length ? pos.reduce((a, b) => a + b, 0) / pos.length : 0;
+    const largeThreshold = Math.max(30000, avg * 3);
+    const otherCount = newItems.filter(i => i.subCategory === 'その他').length;
     document.getElementById('cc-stats').innerHTML =
       `<span>新規: <b>${newCount}件</b></span>` +
       `<span>重複(スキップ): <b>${dupCount}件</b></span>` +
-      `<span>登録金額合計: <b>${fmt(total)}</b></span>`;
+      `<span>登録金額合計: <b>${fmt(total)}</b></span>` +
+      (otherCount > 0 ? `<span style="color:var(--expense)">「その他」: <b>${otherCount}件</b></span>` : '');
+    const subOpts = (sel) => CC_SUBCATEGORIES.map(v => `<option value="${v}"${v === sel ? ' selected' : ''}>${v}</option>`).join('');
     const rowsHtml = items.map((i, idx) => {
       const u = USERS.includes(i.user) ? i.user : 'K';
       const opts = USERS.map(v => `<option value="${v}"${v === u ? ' selected' : ''}>${v}</option>`).join('');
+      const isLarge = !dupFlags[idx] && i.amount > 0 && i.amount >= largeThreshold;
+      const cls = dupFlags[idx] ? 'dup' : (isLarge ? 'large' : '');
       return `
-      <tr class="${dupFlags[idx] ? 'dup' : ''}">
+      <tr class="${cls}">
         <td>${escapeHtml(i.date)}</td>
         <td><select class="user-select ${u === 'K' ? 'k' : 'c'}" data-preview-idx="${idx}">${opts}</select></td>
-        <td style="font-size:11px;color:var(--muted)">${escapeHtml(i.colA || '')}</td>
         <td>${escapeHtml(i.memo)}</td>
-        <td class="amount">${fmt(i.amount)}</td>
+        <td><select class="subcat-select" data-preview-sub="${idx}">${subOpts(i.subCategory)}</select></td>
+        <td class="amount">${isLarge ? '⚠ ' : ''}${fmt(i.amount)}</td>
       </tr>`;
     }).join('');
     document.getElementById('cc-preview-wrap').innerHTML = `
       <table>
-        <thead><tr><th>日付</th><th>利用者</th><th>A列</th><th>店舗・摘要</th><th style="text-align:right">金額</th></tr></thead>
+        <thead><tr><th>日付</th><th>利用者</th><th>店舗・摘要</th><th>分類</th><th style="text-align:right">金額</th></tr></thead>
         <tbody>${rowsHtml}</tbody>
       </table>`;
   }
@@ -2311,7 +2360,7 @@
         user: USERS.includes(i.user) ? i.user : 'K',
         memo: i.memo,
         amount: i.amount,
-        subCategory: classifyMerchant(i.memo),
+        subCategory: CC_SUBCATEGORIES.includes(i.subCategory) ? i.subCategory : classifyMerchant(i.memo),
       });
     }
     entries = entries.concat(added);
@@ -2324,9 +2373,26 @@
   document.getElementById('cc-payer').addEventListener('change', refreshCcPreview);
   document.getElementById('cc-preview-wrap').addEventListener('change', (e) => {
     const idx = e.target.dataset.previewIdx;
-    if (idx == null) return;
-    pendingItems[Number(idx)].user = e.target.value;
-    refreshCcPreview();
+    const subIdx = e.target.dataset.previewSub;
+    if (idx != null) {
+      pendingItems[Number(idx)].user = e.target.value;
+      refreshCcPreview();
+    } else if (subIdx != null) {
+      const item = pendingItems[Number(subIdx)];
+      const newSub = e.target.value;
+      item.subCategory = newSub;
+      // offer to remember this store→category rule
+      const kw = (item.memo || '').trim();
+      if (kw && newSub !== classifyMerchant(item.memo)) {
+        const short = kw.length > 16 ? kw.slice(0, 16) + '…' : kw;
+        if (confirm(`今後「${short}」を含む明細を自動で「${newSub}」に分類しますか?`)) {
+          classifyRules[kw] = newSub;
+          saveClassifyRules();
+          pendingItems.forEach(p => { if ((p.memo || '').includes(kw)) p.subCategory = newSub; });
+        }
+      }
+      refreshCcPreview();
+    }
   });
   document.getElementById('cc-all-k').addEventListener('click', () => {
     pendingItems.forEach(i => i.user = 'K');
