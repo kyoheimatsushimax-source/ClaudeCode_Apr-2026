@@ -796,11 +796,6 @@
   </section>
 
   <section class="card form-card">
-    <h2>🏆 Top支出先 (家族・クレカ)</h2>
-    <div class="ranking" id="merchant-ranking"></div>
-  </section>
-
-  <section class="card form-card">
     <h2>👤 個人別支出 (K / C)</h2>
     <p style="font-size:12px; color: var(--muted); margin: -8px 0 14px;">
       下記の金額は家族全体の集計には含まれません。個人立替・個人購入を別管理します。
@@ -864,22 +859,6 @@
         <button type="submit" class="primary">追加</button>
       </div>
     </form>
-  </section>
-
-  <section class="card form-card">
-    <h2>🎯 予算 達成状況</h2>
-    <div class="budget-list" id="budget-list"></div>
-    <div class="budget-edit">
-      <div style="flex:1; min-width:140px;">
-        <label for="budget-category">カテゴリ</label>
-        <select id="budget-category"></select>
-      </div>
-      <div style="flex:1; min-width:120px;">
-        <label for="budget-amount">月予算 (円)</label>
-        <input type="number" id="budget-amount" min="0" step="100" placeholder="0" />
-      </div>
-      <button type="button" class="primary" id="budget-save" style="width:auto;">保存</button>
-    </div>
   </section>
 
   <section class="card form-card">
@@ -1160,8 +1139,22 @@
     { sub: '通信', words: ['ドコモ', 'ＮＴＴドコモ', 'NTTドコモ', 'NTT', 'au', 'KDDI', 'ソフトバンク', 'SoftBank', 'SOFTBANK', 'ahamo', 'povo', 'LINEMO', '楽天モバイル', 'mineo', 'UQ', 'BIGLOBE', 'ぷらら'] },
     { sub: '美容', words: ['美容室', 'ヘアサロン', 'サロン', 'スパ', 'コスメ', 'COSME', '@cosme', '資生堂', 'SHISEIDO', 'マツエク', 'ネイル', '理容'] },
   ];
+  const CLASSIFY_RULES_KEY = 'kakeibo.rules.v1';
+  let classifyRules = {}; // { keyword: subCategory }
+  function loadClassifyRules() {
+    try {
+      const raw = JSON.parse(localStorage.getItem(CLASSIFY_RULES_KEY));
+      if (raw && typeof raw === 'object') classifyRules = raw;
+    } catch {}
+  }
+  function saveClassifyRules() { localStorage.setItem(CLASSIFY_RULES_KEY, JSON.stringify(classifyRules)); }
   function classifyMerchant(memo) {
     if (!memo) return 'その他';
+    // user-defined rules take priority (longest keyword first for specificity)
+    const rk = Object.keys(classifyRules).sort((a, b) => b.length - a.length);
+    for (const kw of rk) {
+      if (kw && memo.includes(kw) && CC_SUBCATEGORIES.includes(classifyRules[kw])) return classifyRules[kw];
+    }
     for (const { sub, words } of SUBCAT_PATTERNS) {
       for (const w of words) if (memo.includes(w)) return sub;
     }
@@ -1322,7 +1315,6 @@
     document.getElementById('stat-salary').textContent = fmt(salaryTotal);
     document.getElementById('stat-subsidy').textContent = fmt(subsidyTotal);
 
-    renderMerchantRanking(monthExpenses);
     renderIncomeChart(monthIncomes);
     renderPersonal(monthEntries);
 
@@ -1409,39 +1401,10 @@
     }
 
     renderChart(monthEntries.filter(e => e.type === 'expense' && isFamily(e)));
-    renderBudgets(monthEntries.filter(e => e.type === 'expense' && isFamily(e)));
     renderYearly();
     renderCategoryTrend();
     if (activeTab === 'flow') renderFlow();
     if (activeTab === 'stock') renderStock();
-  }
-
-  function renderBudgets(monthExpenses) {
-    const spent = {};
-    monthExpenses.forEach(e => { spent[e.category] = (spent[e.category] || 0) + e.amount; });
-    const list = document.getElementById('budget-list');
-    const cats = Object.keys(budgets).filter(c => budgets[c] > 0);
-    if (cats.length === 0) {
-      list.innerHTML = '<div class="budget-empty">まだ予算が設定されていません。下のフォームから追加できます。</div>';
-      return;
-    }
-    cats.sort((a, b) => CATEGORIES.expense.indexOf(a) - CATEGORIES.expense.indexOf(b));
-    list.innerHTML = cats.map(cat => {
-      const budget = budgets[cat];
-      const used = spent[cat] || 0;
-      const pct = budget > 0 ? (used / budget) * 100 : 0;
-      const cls = pct >= 100 ? 'over' : pct >= 80 ? 'warn' : '';
-      const width = Math.min(pct, 100);
-      const safeCat = escapeHtml(cat);
-      return `
-        <div class="budget-row">
-          <div class="budget-head">
-            <span class="budget-cat">${safeCat} <button class="delete-btn" data-budget="${safeCat}" title="予算を削除" style="padding:0 4px;font-size:14px;">×</button></span>
-            <span class="budget-nums">${fmt(used)} / ${fmt(budget)}<span class="pct">${pct.toFixed(0)}%</span></span>
-          </div>
-          <div class="bar-bg"><div class="bar-fill ${cls}" style="width:${width}%"></div></div>
-        </div>`;
-    }).join('');
   }
 
   function renderYearly() {
@@ -1487,11 +1450,6 @@
         },
       },
     });
-  }
-
-  function refreshBudgetCategorySelect() {
-    const sel = document.getElementById('budget-category');
-    sel.innerHTML = CATEGORIES.expense.map(c => `<option value="${c}">${c}</option>`).join('');
   }
 
   function escapeHtml(s) {
@@ -1549,29 +1507,6 @@
     const cls = diff > 0 ? 'good' : diff < 0 ? 'bad' : 'neutral';
     el.className = 'kpi-delta ' + cls;
     el.textContent = `${arrow} 前月比 ${diff >= 0 ? '+' : ''}${diff.toFixed(1)}pt`;
-  }
-
-  function renderMerchantRanking(monthExpenses) {
-    const ccItems = monthExpenses.filter(e => e.category === 'クレカ' && e.memo);
-    const byMerchant = {};
-    ccItems.forEach(e => {
-      const key = e.memo;
-      if (!byMerchant[key]) byMerchant[key] = { total: 0, count: 0 };
-      byMerchant[key].total += e.amount;
-      byMerchant[key].count++;
-    });
-    const sorted = Object.entries(byMerchant).sort((a, b) => b[1].total - a[1].total).slice(0, 8);
-    const el = document.getElementById('merchant-ranking');
-    if (sorted.length === 0) {
-      el.innerHTML = '<div class="ranking-empty">この月のクレカ明細はまだありません。CSV をインポートするとここに利用先トップが表示されます。</div>';
-      return;
-    }
-    el.innerHTML = sorted.map(([name, info], i) => `
-      <div class="ranking-row">
-        <div class="ranking-rank">${i + 1}</div>
-        <div class="ranking-name">${escapeHtml(name)}<small>${info.count}回</small></div>
-        <div class="ranking-amount">${fmt(info.total)}</div>
-      </div>`).join('');
   }
 
   function renderIncomeTable(items) {
@@ -1997,12 +1932,22 @@
   });
 
   document.getElementById('export-btn').addEventListener('click', () => {
-    const payload = { entries, budgets };
+    const payload = {
+      app: 'kakeibo',
+      version: 2,
+      exportedAt: new Date().toISOString(),
+      entries,
+      budgets,
+      flow,
+      assets,
+      classifyRules,
+      ui,
+    };
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `kakeibo-${ym(new Date())}.json`;
+    a.download = `kakeibo-backup-${ym(new Date())}.json`;
     a.click();
     URL.revokeObjectURL(url);
   });
@@ -2016,20 +1961,40 @@
     reader.onload = (ev) => {
       try {
         const data = JSON.parse(ev.target.result);
+        const isFull = data && !Array.isArray(data) && (data.flow || data.assets || data.version);
         const rawEntries = Array.isArray(data) ? data : data.entries;
-        const rawBudgets = Array.isArray(data) ? null : data.budgets;
         if (!Array.isArray(rawEntries)) throw new Error('形式が正しくありません');
         const cleanEntries = rawEntries.map(sanitizeEntry).filter(Boolean);
-        const cleanBudgets = rawBudgets ? sanitizeBudgets(rawBudgets) : null;
-        if (confirm(`${cleanEntries.length}件のデータを読み込みます。既存データに追加しますか? (キャンセルで上書き)`)) {
-          entries = entries.concat(cleanEntries);
-          if (cleanBudgets) budgets = Object.assign({}, budgets, cleanBudgets);
-        } else {
+
+        if (isFull) {
+          const msg = `完全バックアップを検出しました (明細${cleanEntries.length}件 + フロー/ストック/設定)。\n\n` +
+            `「OK」= すべて上書き復元 / 「キャンセル」= 中止`;
+          if (!confirm(msg)) { e.target.value = ''; return; }
           entries = cleanEntries;
-          if (cleanBudgets) budgets = cleanBudgets;
+          if (data.budgets && typeof data.budgets === 'object') budgets = sanitizeBudgets(data.budgets);
+          if (data.flow && Array.isArray(data.flow.items) && typeof data.flow.amounts === 'object') flow = data.flow;
+          if (data.assets && Array.isArray(data.assets.accounts)) {
+            assets = data.assets;
+            if (!assets.rates) assets.rates = {};
+            if (!assets.snapshots) assets.snapshots = {};
+          }
+          if (data.classifyRules && typeof data.classifyRules === 'object') classifyRules = data.classifyRules;
+          if (data.ui && typeof data.ui === 'object') {
+            ui.incomeChartOrder = Array.isArray(data.ui.incomeChartOrder) ? data.ui.incomeChartOrder : [];
+            ui.expenseChartOrder = Array.isArray(data.ui.expenseChartOrder) ? data.ui.expenseChartOrder : [];
+            ui.incomeEntryOrder = Array.isArray(data.ui.incomeEntryOrder) ? data.ui.incomeEntryOrder : [];
+          }
+          save(); saveBudgets(); saveFlow(); saveAssets(); saveClassifyRules(); saveUI();
+          alert('完全バックアップを復元しました');
+        } else {
+          if (confirm(`${cleanEntries.length}件の明細を読み込みます。既存データに追加しますか? (キャンセルで上書き)`)) {
+            entries = entries.concat(cleanEntries);
+          } else {
+            entries = cleanEntries;
+          }
+          save();
         }
-        save();
-        saveBudgets();
+        migrateUsers();
         render();
       } catch (err) {
         alert('読み込みに失敗しました: ' + err.message);
@@ -2039,38 +2004,7 @@
     e.target.value = '';
   });
 
-  document.getElementById('budget-save').addEventListener('click', () => {
-    const cat = document.getElementById('budget-category').value;
-    const amountStr = document.getElementById('budget-amount').value;
-    const amount = parseInt(amountStr, 10);
-    if (!cat || isNaN(amount) || amount < 0) {
-      alert('カテゴリと金額を入力してください');
-      return;
-    }
-    if (amount === 0) delete budgets[cat];
-    else budgets[cat] = amount;
-    saveBudgets();
-    document.getElementById('budget-amount').value = '';
-    render();
-  });
-
-  document.getElementById('budget-category').addEventListener('change', (e) => {
-    const cat = e.target.value;
-    document.getElementById('budget-amount').value = budgets[cat] || '';
-  });
-
-  document.getElementById('budget-list').addEventListener('click', (e) => {
-    if (e.target.dataset.budget) {
-      const cat = e.target.dataset.budget;
-      if (confirm(`${cat} の予算を削除しますか?`)) {
-        delete budgets[cat];
-        saveBudgets();
-        render();
-      }
-    }
-  });
-
-  const DATE_HEADERS = ['利用日', 'ご利用日', '取引日', '日付', '日時', 'date', 'transaction date', 'ご利用年月日', '伝票日付', 'お支払日'];
+  const DATE_HEADERS =['利用日', 'ご利用日', '取引日', '日付', '日時', 'date', 'transaction date', 'ご利用年月日', '伝票日付', 'お支払日'];
   const AMOUNT_HEADERS = ['利用金額', 'ご利用金額', '金額', '請求金額', 'amount', '利用額', 'ご利用金額(円)', 'ご利用金額(￥)', 'ご請求金額', 'お支払金額', '支払金額'];
   const DESC_HEADERS = ['利用店名', 'ご利用店舗', '利用店舗', '店名', '店舗', '摘要', '内容', '備考', '利用先', 'description', 'merchant', 'ご利用先', 'ご利用店名', '利用店名・商品名', 'ご利用先など'];
 
@@ -2884,10 +2818,9 @@
     catTrendFilter = e.target.value;
     renderCategoryTrend();
   });
+  loadClassifyRules();
   document.getElementById('date').value = new Date().toISOString().slice(0, 10);
   setType('income');
-  refreshBudgetCategorySelect();
-  document.getElementById('budget-amount').value = budgets[document.getElementById('budget-category').value] || '';
   render();
 </script>
 </body>
