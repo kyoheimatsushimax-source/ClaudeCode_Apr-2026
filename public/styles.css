@@ -1,0 +1,149 @@
+:root {
+  --bg: #0f1117;
+  --surface: #181b24;
+  --surface-2: #20242f;
+  --border: #2b313d;
+  --text: #e6e9ef;
+  --muted: #8b93a7;
+  --accent: #5b8cff;
+  --accent-2: #3a6bff;
+  --green: #36c08a;
+  --yellow: #e8b53a;
+  --red: #ec5b5b;
+  --purple: #a974ff;
+  --radius: 10px;
+  --shadow: 0 6px 24px rgba(0,0,0,.35);
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  font-family: "Hiragino Sans", "Yu Gothic", "Noto Sans JP", system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* ---- Topbar ---- */
+.topbar {
+  position: sticky; top: 0; z-index: 10;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 0 20px;
+}
+.brand { display: flex; align-items: center; gap: 10px; padding: 14px 0 8px; }
+.brand .logo { color: var(--accent); font-size: 20px; }
+.brand h1 { font-size: 17px; margin: 0; font-weight: 600; }
+.tabs { display: flex; gap: 4px; flex-wrap: wrap; }
+.tabs button {
+  background: none; border: none; color: var(--muted);
+  padding: 10px 14px; cursor: pointer; font-size: 14px;
+  border-bottom: 2px solid transparent; border-radius: 0;
+}
+.tabs button:hover { color: var(--text); }
+.tabs button.active { color: var(--text); border-bottom-color: var(--accent); }
+
+main { padding: 24px; max-width: 1180px; margin: 0 auto; }
+
+/* ---- Common ---- */
+.row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.spread { justify-content: space-between; }
+.section-head { display:flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+.section-head h2 { margin: 0; font-size: 18px; }
+.muted { color: var(--muted); }
+.hidden { display: none !important; }
+
+button.btn, .btn {
+  background: var(--accent-2); color: #fff; border: none;
+  padding: 9px 16px; border-radius: 8px; cursor: pointer; font-size: 14px;
+  font-weight: 500;
+}
+button.btn:hover { background: var(--accent); }
+.btn.ghost { background: var(--surface-2); color: var(--text); border: 1px solid var(--border); }
+.btn.ghost:hover { background: var(--border); }
+.btn.danger { background: transparent; color: var(--red); border: 1px solid transparent; }
+.btn.danger:hover { background: rgba(236,91,91,.12); }
+.btn.sm { padding: 5px 10px; font-size: 12.5px; }
+.icon-btn { background:none;border:none;color:var(--muted);font-size:16px;cursor:pointer; }
+.icon-btn:hover { color: var(--text); }
+
+/* ---- Cards / grid ---- */
+.grid { display: grid; gap: 16px; }
+.cards { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
+.card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 16px;
+}
+.stat .big { font-size: 30px; font-weight: 700; }
+.stat .label { color: var(--muted); font-size: 13px; }
+
+/* ---- Progress bar ---- */
+.bar { height: 8px; background: var(--surface-2); border-radius: 99px; overflow: hidden; }
+.bar > span { display: block; height: 100%; background: var(--accent); border-radius: 99px; }
+
+/* ---- Table ---- */
+table { width: 100%; border-collapse: collapse; }
+th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+th { color: var(--muted); font-weight: 500; font-size: 12.5px; }
+tbody tr:hover { background: var(--surface-2); }
+
+/* ---- Badges ---- */
+.tag { display: inline-block; padding: 2px 9px; border-radius: 99px; font-size: 12px; font-weight: 500; white-space: nowrap; }
+.tag.todo { background: rgba(139,147,167,.18); color: var(--muted); }
+.tag.in_progress { background: rgba(91,140,255,.18); color: var(--accent); }
+.tag.review { background: rgba(169,116,255,.18); color: var(--purple); }
+.tag.done { background: rgba(54,192,138,.18); color: var(--green); }
+.tag.blocked { background: rgba(236,91,91,.18); color: var(--red); }
+.tag.low { background: rgba(139,147,167,.15); color: var(--muted); }
+.tag.medium { background: rgba(91,140,255,.15); color: var(--accent); }
+.tag.high { background: rgba(232,181,58,.18); color: var(--yellow); }
+.tag.urgent { background: rgba(236,91,91,.2); color: var(--red); }
+.tag.overdue { background: rgba(236,91,91,.2); color: var(--red); }
+
+.badge { background: var(--red); color:#fff; border-radius: 99px; font-size: 11px; padding: 1px 7px; margin-left: 4px; }
+
+/* ---- Forms ---- */
+.field { margin-bottom: 14px; }
+.field label { display:block; font-size: 13px; color: var(--muted); margin-bottom: 5px; }
+.field input, .field select, .field textarea {
+  width: 100%; background: var(--bg); color: var(--text);
+  border: 1px solid var(--border); border-radius: 8px; padding: 9px 11px; font-size: 14px;
+  font-family: inherit;
+}
+.field textarea { resize: vertical; min-height: 70px; }
+.field.inline { display:flex; gap: 12px; }
+.field.inline > div { flex: 1; }
+
+/* ---- Modal ---- */
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,.55);
+  display: flex; align-items: flex-start; justify-content: center; padding: 60px 16px; z-index: 50;
+  overflow-y: auto;
+}
+.modal {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 12px; width: 100%; max-width: 520px; box-shadow: var(--shadow);
+}
+.modal-head { display:flex; justify-content: space-between; align-items:center; padding: 16px 20px; border-bottom: 1px solid var(--border); }
+.modal-head h2 { margin: 0; font-size: 16px; }
+#modal-body { padding: 20px; }
+.modal-actions { display:flex; justify-content: flex-end; gap: 10px; margin-top: 8px; }
+
+/* ---- Toast ---- */
+.toast {
+  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+  background: var(--surface-2); border: 1px solid var(--border); color: var(--text);
+  padding: 11px 18px; border-radius: 10px; box-shadow: var(--shadow); z-index: 100;
+}
+
+/* ---- Reminders ---- */
+.reminder-group { margin-bottom: 22px; }
+.reminder-group h3 { font-size: 14px; margin: 0 0 10px; display:flex; align-items:center; gap:8px; }
+.empty { color: var(--muted); padding: 40px; text-align: center; }
+.due { font-variant-numeric: tabular-nums; }
+.due.overdue { color: var(--red); }
+.due.soon { color: var(--yellow); }
+
+a.linkish { color: var(--accent); cursor: pointer; text-decoration: none; }
+a.linkish:hover { text-decoration: underline; }

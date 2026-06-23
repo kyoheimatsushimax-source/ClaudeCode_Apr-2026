@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>チームミッション管理</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo">◆</span>
+      <h1>チームミッション管理</h1>
+    </div>
+    <nav class="tabs">
+      <button data-view="dashboard" class="active">ダッシュボード</button>
+      <button data-view="tasks">ミッション/タスク</button>
+      <button data-view="members">メンバー</button>
+      <button data-view="records">1on1・評価</button>
+      <button data-view="reminders">通知 <span id="reminder-badge" class="badge hidden">0</span></button>
+    </nav>
+  </header>
+
+  <main id="app"></main>
+
+  <!-- モーダル -->
+  <div id="modal-overlay" class="modal-overlay hidden">
+    <div class="modal">
+      <div class="modal-head">
+        <h2 id="modal-title">タイトル</h2>
+        <button id="modal-close" class="icon-btn">✕</button>
+      </div>
+      <div id="modal-body"></div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+
+  <script src="/app.js"></script>
+</body>
+</html>
