@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'unsafe-inline'; img-src data:; connect-src 'none'; base-uri 'none'; form-action 'none';" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'unsafe-inline'; img-src data:; connect-src https://query1.finance.yahoo.com https://query2.finance.yahoo.com https://api.allorigins.win; base-uri 'none'; form-action 'none';" />
 <title>かんたん家計簿</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" crossorigin="anonymous"></script>
 <style>
@@ -659,6 +659,73 @@
     width: auto;
   }
   .row-edit-btn:hover { color: var(--primary); }
+  .holdings-table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 720px; }
+  .holdings-table th, .holdings-table td { padding: 8px 8px; border-bottom: 1px solid var(--border); }
+  .holdings-table th { font-size: 11px; color: var(--muted); font-weight: 600; text-align: left; }
+  .holdings-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .holdings-table input.h-inp { width: 90px; text-align: right; padding: 4px 6px; font-variant-numeric: tabular-nums; }
+  .holdings-table .pl-pos { color: var(--income); font-weight: 700; }
+  .holdings-table .pl-neg { color: var(--expense); font-weight: 700; }
+  .holdings-table .ticker { font-family: ui-monospace, monospace; font-size: 12px; color: var(--muted); }
+  .holdings-add {
+    display: grid;
+    grid-template-columns: 1.4fr 1fr 90px 90px 100px auto;
+    gap: 8px;
+    margin-top: 14px;
+    align-items: center;
+  }
+  @media (max-width: 720px) { .holdings-add { grid-template-columns: 1fr 1fr; } }
+  .price-stale { color: var(--muted); font-size: 10px; }
+  .gantt {
+    display: grid;
+    grid-template-columns: 160px repeat(12, 1fr);
+    gap: 2px;
+    min-width: 720px;
+    font-size: 11px;
+  }
+  .gantt .g-head {
+    text-align: center;
+    color: var(--muted);
+    font-weight: 600;
+    padding: 4px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .gantt .g-name {
+    padding: 8px 6px;
+    font-weight: 600;
+    font-size: 12px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+  }
+  .gantt .g-name button {
+    width: auto; padding: 2px 6px; font-size: 10px; background: white; cursor: pointer;
+  }
+  .gantt .g-cell {
+    min-height: 30px;
+    border-radius: 4px;
+    background: var(--bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    font-size: 10px;
+  }
+  .gantt .g-cell.paid { background: #f59e0b; }
+  .gantt-empty { color: var(--muted); font-size: 13px; padding: 12px 0; }
+  .month-picker { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
+  .month-picker label {
+    display: flex; align-items: center; gap: 4px; font-size: 12px; margin: 0;
+    padding: 4px; border: 1px solid var(--border); border-radius: 6px; cursor: pointer;
+  }
+  .month-picker label.on { background: #fef3c7; border-color: #f59e0b; }
+  .month-picker input { width: auto; }
   .chart-order {
     display: flex;
     flex-wrap: wrap;
@@ -767,6 +834,7 @@
   <button type="button" class="tab active" data-tab="dashboard">📊 ダッシュボード</button>
   <button type="button" class="tab" data-tab="flow">💰 フロー</button>
   <button type="button" class="tab" data-tab="stock">🏦 ストック</button>
+  <button type="button" class="tab" data-tab="invest">📈 投資</button>
 </nav>
 
 <main id="view-dashboard">
@@ -1140,6 +1208,88 @@
   </section>
 </main>
 
+<main id="view-invest" style="display:none">
+  <section class="card form-card">
+    <h2>📈 保有株式
+      <button type="button" id="stock-refresh" style="width:auto;padding:4px 12px;font-size:12px;margin-left:8px;">🔄 株価を自動取得</button>
+      <span id="stock-refresh-status" style="font-size:11px;color:var(--muted);margin-left:6px;"></span>
+    </h2>
+    <div class="stock-summary" style="grid-template-columns:repeat(4,1fr);">
+      <div class="stock-summary-item deposit">
+        <div class="stock-label">取得原価 合計</div>
+        <div class="stock-value" id="pf-cost">¥0</div>
+      </div>
+      <div class="stock-summary-item invest">
+        <div class="stock-label">評価額 合計</div>
+        <div class="stock-value" id="pf-value">¥0</div>
+      </div>
+      <div class="stock-summary-item net">
+        <div class="stock-label">含み損益</div>
+        <div class="stock-value" id="pf-pl">¥0</div>
+      </div>
+      <div class="stock-summary-item invest" style="border-left-color:#f59e0b;">
+        <div class="stock-label">年間配当 (予定)</div>
+        <div class="stock-value" id="pf-div">¥0</div>
+      </div>
+    </div>
+    <div style="overflow-x:auto;margin-top:14px;">
+      <table id="holdings-table" class="holdings-table">
+        <thead>
+          <tr>
+            <th>銘柄</th><th>ティッカー</th><th>通貨</th>
+            <th style="text-align:right">保有株数</th>
+            <th style="text-align:right">取得単価</th>
+            <th style="text-align:right">最新株価</th>
+            <th style="text-align:right">評価額</th>
+            <th style="text-align:right">含み損益</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="holdings-body"></tbody>
+      </table>
+    </div>
+    <div class="empty" id="holdings-empty" style="display:none">保有株式はまだありません。下のフォームから追加してください。</div>
+    <div class="holdings-add">
+      <input type="text" id="h-name" placeholder="銘柄名 (例: トヨタ)" />
+      <input type="text" id="h-ticker" placeholder="ティッカー (例: 7203.T / AAPL)" />
+      <select id="h-currency"><option value="JPY">JPY</option><option value="USD">USD</option><option value="SGD">SGD</option></select>
+      <input type="text" inputmode="decimal" id="h-shares" placeholder="株数" />
+      <input type="text" inputmode="decimal" id="h-cost" placeholder="取得単価" />
+      <button type="button" class="primary" id="h-add-btn" style="width:auto;">追加</button>
+    </div>
+    <p style="font-size:11px;color:var(--muted);margin-top:10px;">
+      ティッカー例: 日本株は「7203.T」(証券コード+.T)、米国株は「AAPL」。自動取得は Yahoo Finance を利用します。
+      ブラウザの制約 (CORS) で取得できない場合は「最新株価」を手入力してください (含み損益は自動計算)。
+    </p>
+  </section>
+
+  <section class="card form-card">
+    <h2>📅 配当スケジュール (年間)</h2>
+    <p style="font-size:12px;color:var(--muted);margin:-8px 0 12px;">
+      各銘柄の配当受取月を1年のタイムラインで表示します。行の「編集」から受取月と1株あたり配当を設定してください。
+    </p>
+    <div style="overflow-x:auto;">
+      <div id="dividend-gantt"></div>
+    </div>
+  </section>
+</main>
+
+<div id="holding-edit-overlay" class="modal-overlay" style="display:none">
+  <div class="modal">
+    <h2 id="he-title">配当設定</h2>
+    <div class="modal-body">
+      <label>1株あたり 年間配当 (通貨単位)</label>
+      <input type="text" inputmode="decimal" id="he-div-per-share" placeholder="例: 120" />
+      <label style="margin-top:10px;">配当受取月 (複数選択可)</label>
+      <div id="he-months" class="month-picker"></div>
+    </div>
+    <div class="modal-actions">
+      <button type="button" id="he-cancel">キャンセル</button>
+      <button type="button" class="primary" id="he-save">保存</button>
+    </div>
+  </div>
+</div>
+
 <div id="cc-preview-overlay" class="modal-overlay" style="display:none">
   <div class="modal wide">
     <h2>クレカ明細プレビュー</h2>
@@ -1510,6 +1660,7 @@
     renderCategoryTrend();
     if (activeTab === 'flow') renderFlow();
     if (activeTab === 'stock') renderStock();
+    if (activeTab === 'invest') renderPortfolio();
   }
 
   function monthlyNet(key) {
@@ -2164,6 +2315,7 @@
       budgets,
       flow,
       assets,
+      portfolio,
       classifyRules,
       ui,
     };
@@ -2202,6 +2354,7 @@
             if (!assets.rates) assets.rates = {};
             if (!assets.snapshots) assets.snapshots = {};
           }
+          if (data.portfolio && Array.isArray(data.portfolio.holdings)) { portfolio = data.portfolio; loadPortfolio(); }
           if (data.classifyRules && typeof data.classifyRules === 'object') classifyRules = data.classifyRules;
           if (data.ui && typeof data.ui === 'object') {
             ui.incomeChartOrder = Array.isArray(data.ui.incomeChartOrder) ? data.ui.incomeChartOrder : [];
@@ -3116,18 +3269,249 @@
     }
   }
 
+  // ===== Portfolio (個別株) =====
+  const PORTFOLIO_KEY = 'kakeibo.portfolio.v1';
+  let portfolio = { holdings: [] };
+  let pfEditingId = null;
+  function loadPortfolio() {
+    try {
+      const raw = JSON.parse(localStorage.getItem(PORTFOLIO_KEY));
+      if (raw && Array.isArray(raw.holdings)) portfolio = raw;
+    } catch {}
+    for (const h of portfolio.holdings) {
+      if (!CURRENCIES.includes(h.currency)) h.currency = 'JPY';
+      if (!Array.isArray(h.dividendMonths)) h.dividendMonths = [];
+    }
+  }
+  function savePortfolio() { localStorage.setItem(PORTFOLIO_KEY, JSON.stringify(portfolio)); }
+
+  function addHolding(name, ticker, currency, shares, cost) {
+    if (!name || !name.trim()) return;
+    const id = 'h' + Date.now() + Math.floor(Math.random() * 1000);
+    portfolio.holdings.push({
+      id, name: name.trim(), ticker: (ticker || '').trim(),
+      currency: CURRENCIES.includes(currency) ? currency : 'JPY',
+      shares: Number(shares) || 0, cost: Number(cost) || 0,
+      price: 0, priceAt: '', dividendPerShare: 0, dividendMonths: [],
+    });
+    savePortfolio();
+  }
+  function deleteHolding(id) {
+    portfolio.holdings = portfolio.holdings.filter(h => h.id !== id);
+    savePortfolio();
+  }
+
+  function holdingValue(h) { return (h.price || 0) * (h.shares || 0); }
+  function holdingCost(h) { return (h.cost || 0) * (h.shares || 0); }
+  function holdingPL(h) { return holdingValue(h) - holdingCost(h); }
+  function holdingAnnualDiv(h) { return (h.dividendPerShare || 0) * (h.shares || 0) * (h.dividendMonths ? h.dividendMonths.length : 0); }
+
+  function renderPortfolio() {
+    const body = document.getElementById('holdings-body');
+    const empty = document.getElementById('holdings-empty');
+    const table = document.getElementById('holdings-table');
+    const hs = portfolio.holdings;
+    if (hs.length === 0) {
+      body.innerHTML = '';
+      table.style.display = 'none';
+      empty.style.display = 'block';
+    } else {
+      table.style.display = '';
+      empty.style.display = 'none';
+      body.innerHTML = hs.map(h => {
+        const val = holdingValue(h), pl = holdingPL(h);
+        const plPct = holdingCost(h) > 0 ? (pl / holdingCost(h)) * 100 : 0;
+        const plCls = pl > 0 ? 'pl-pos' : pl < 0 ? 'pl-neg' : '';
+        const priceStale = h.priceAt ? '' : '<span class="price-stale">未取得</span>';
+        return `
+        <tr data-h-id="${h.id}">
+          <td>${escapeHtml(h.name)}</td>
+          <td class="ticker">${escapeHtml(h.ticker || '—')}</td>
+          <td>${h.currency}</td>
+          <td class="num"><input class="h-inp" inputmode="decimal" data-h-field="shares" value="${numComma(h.shares)}" /></td>
+          <td class="num"><input class="h-inp" inputmode="decimal" data-h-field="cost" value="${numComma(h.cost)}" /></td>
+          <td class="num"><input class="h-inp" inputmode="decimal" data-h-field="price" value="${h.price ? numComma(h.price) : ''}" placeholder="手入力可" />${priceStale}</td>
+          <td class="num">${fmtForeign(val, h.currency)}</td>
+          <td class="num ${plCls}">${pl >= 0 ? '+' : ''}${fmtForeign(pl, h.currency)}<br><span style="font-size:10px;">${plPct >= 0 ? '+' : ''}${plPct.toFixed(1)}%</span></td>
+          <td style="white-space:nowrap;"><button class="row-edit-btn" data-h-div="${h.id}" title="配当設定">📅</button><button class="delete-btn" data-h-del="${h.id}" title="削除">×</button></td>
+        </tr>`;
+      }).join('');
+    }
+
+    // summary in JPY
+    let costJPY = 0, valJPY = 0, divJPY = 0, missingRate = false;
+    const mk = ym(viewMonth);
+    for (const h of hs) {
+      const c = toJPY(holdingCost(h), h.currency, mk);
+      const v = toJPY(holdingValue(h), h.currency, mk);
+      const d = toJPY(holdingAnnualDiv(h), h.currency, mk);
+      if (c === null || v === null) { missingRate = true; continue; }
+      costJPY += c; valJPY += v; divJPY += (d || 0);
+    }
+    const plJPY = valJPY - costJPY;
+    document.getElementById('pf-cost').textContent = fmt(costJPY);
+    document.getElementById('pf-value').textContent = fmt(valJPY);
+    const plEl = document.getElementById('pf-pl');
+    plEl.textContent = (plJPY >= 0 ? '+' : '') + fmt(plJPY);
+    document.getElementById('pf-div').textContent = fmt(divJPY);
+    document.getElementById('stock-refresh-status').textContent = missingRate ? '⚠ 外貨レート未設定 (ストックタブで設定)' : '';
+
+    renderDividendGantt();
+  }
+
+  function renderDividendGantt() {
+    const el = document.getElementById('dividend-gantt');
+    const hs = portfolio.holdings;
+    if (hs.length === 0) { el.innerHTML = '<div class="gantt-empty">保有株式を追加すると配当スケジュールが表示されます。</div>'; return; }
+    const months = ['1','2','3','4','5','6','7','8','9','10','11','12'];
+    let html = '<div class="gantt">';
+    html += '<div class="g-head"></div>' + months.map(m => `<div class="g-head">${m}月</div>`).join('');
+    for (const h of hs) {
+      html += `<div class="g-name"><span title="${escapeHtml(h.name)}">${escapeHtml(h.name)}</span><button data-h-div="${h.id}">編集</button></div>`;
+      const perPay = (h.dividendPerShare || 0) * (h.shares || 0);
+      for (let m = 1; m <= 12; m++) {
+        const paid = h.dividendMonths && h.dividendMonths.includes(m);
+        const label = paid && perPay > 0 ? fmtForeign(perPay, h.currency).replace(/^[^\d-]*/, '') : (paid ? '●' : '');
+        html += `<div class="g-cell ${paid ? 'paid' : ''}" title="${paid ? h.name + ' ' + m + '月: ' + fmtForeign(perPay, h.currency) : ''}">${label}</div>`;
+      }
+    }
+    html += '</div>';
+    el.innerHTML = html;
+  }
+
+  async function fetchQuote(ticker) {
+    const yurl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1d&range=1d`;
+    const tryParse = (json) => {
+      const r = json && json.chart && json.chart.result && json.chart.result[0];
+      const p = r && r.meta && (r.meta.regularMarketPrice ?? r.meta.previousClose);
+      return Number.isFinite(p) ? p : null;
+    };
+    // 1) direct
+    try {
+      const res = await fetch(yurl, { mode: 'cors' });
+      if (res.ok) { const p = tryParse(await res.json()); if (p != null) return p; }
+    } catch {}
+    // 2) allorigins proxy fallback
+    try {
+      const res = await fetch('https://api.allorigins.win/raw?url=' + encodeURIComponent(yurl));
+      if (res.ok) { const p = tryParse(await res.json()); if (p != null) return p; }
+    } catch {}
+    return null;
+  }
+
+  async function refreshAllPrices() {
+    const btn = document.getElementById('stock-refresh');
+    const status = document.getElementById('stock-refresh-status');
+    const withTicker = portfolio.holdings.filter(h => h.ticker);
+    if (withTicker.length === 0) { alert('ティッカーを設定した銘柄がありません'); return; }
+    btn.disabled = true;
+    let ok = 0, fail = 0;
+    const today = new Date().toISOString().slice(0, 10);
+    for (const h of withTicker) {
+      status.textContent = `取得中… ${h.ticker}`;
+      const p = await fetchQuote(h.ticker);
+      if (p != null) { h.price = Math.round(p * 100) / 100; h.priceAt = today; ok++; }
+      else fail++;
+    }
+    savePortfolio();
+    renderPortfolio();
+    btn.disabled = false;
+    status.textContent = `取得完了: 成功${ok}件 / 失敗${fail}件` + (fail > 0 ? ' (失敗分は最新株価を手入力してください)' : '');
+  }
+
+  function openHoldingDivModal(id) {
+    const h = portfolio.holdings.find(x => x.id === id);
+    if (!h) return;
+    pfEditingId = id;
+    document.getElementById('he-title').textContent = `${h.name} の配当設定`;
+    document.getElementById('he-div-per-share').value = h.dividendPerShare ? numComma(h.dividendPerShare) : '';
+    const mp = document.getElementById('he-months');
+    mp.innerHTML = '';
+    for (let m = 1; m <= 12; m++) {
+      const on = h.dividendMonths && h.dividendMonths.includes(m);
+      const lab = document.createElement('label');
+      lab.className = on ? 'on' : '';
+      lab.innerHTML = `<input type="checkbox" value="${m}" ${on ? 'checked' : ''}/> ${m}月`;
+      lab.querySelector('input').addEventListener('change', (e) => {
+        lab.classList.toggle('on', e.target.checked);
+      });
+      mp.appendChild(lab);
+    }
+    document.getElementById('holding-edit-overlay').style.display = 'flex';
+  }
+  function closeHoldingDivModal() {
+    document.getElementById('holding-edit-overlay').style.display = 'none';
+    pfEditingId = null;
+  }
+
+  function setupPortfolio() {
+    document.getElementById('h-add-btn').addEventListener('click', () => {
+      const name = document.getElementById('h-name').value;
+      if (!name.trim()) { alert('銘柄名を入力してください'); return; }
+      addHolding(
+        name,
+        document.getElementById('h-ticker').value,
+        document.getElementById('h-currency').value,
+        parseNumInput(document.getElementById('h-shares').value),
+        parseNumInput(document.getElementById('h-cost').value)
+      );
+      ['h-name', 'h-ticker', 'h-shares', 'h-cost'].forEach(i => document.getElementById(i).value = '');
+      renderPortfolio();
+    });
+    document.getElementById('holdings-body').addEventListener('change', (e) => {
+      const tr = e.target.closest('tr[data-h-id]');
+      if (!tr || !e.target.dataset.hField) return;
+      const h = portfolio.holdings.find(x => x.id === tr.dataset.hId);
+      if (!h) return;
+      const v = parseNumInput(e.target.value);
+      if (!Number.isFinite(v)) return;
+      h[e.target.dataset.hField] = v;
+      if (e.target.dataset.hField === 'price') h.priceAt = new Date().toISOString().slice(0, 10);
+      savePortfolio();
+      renderPortfolio();
+    });
+    document.getElementById('holdings-body').addEventListener('click', (e) => {
+      if (e.target.dataset.hDel) {
+        const h = portfolio.holdings.find(x => x.id === e.target.dataset.hDel);
+        if (h && confirm(`「${h.name}」を削除しますか?`)) { deleteHolding(e.target.dataset.hDel); renderPortfolio(); }
+      } else if (e.target.dataset.hDiv) {
+        openHoldingDivModal(e.target.dataset.hDiv);
+      }
+    });
+    document.getElementById('dividend-gantt').addEventListener('click', (e) => {
+      if (e.target.dataset.hDiv) openHoldingDivModal(e.target.dataset.hDiv);
+    });
+    document.getElementById('stock-refresh').addEventListener('click', refreshAllPrices);
+    document.getElementById('he-cancel').addEventListener('click', closeHoldingDivModal);
+    document.getElementById('holding-edit-overlay').addEventListener('click', (e) => {
+      if (e.target.id === 'holding-edit-overlay') closeHoldingDivModal();
+    });
+    document.getElementById('he-save').addEventListener('click', () => {
+      const h = portfolio.holdings.find(x => x.id === pfEditingId);
+      if (!h) return closeHoldingDivModal();
+      h.dividendPerShare = Math.max(0, parseNumInput(document.getElementById('he-div-per-share').value) || 0);
+      h.dividendMonths = Array.from(document.querySelectorAll('#he-months input:checked')).map(i => Number(i.value)).sort((a, b) => a - b);
+      savePortfolio();
+      closeHoldingDivModal();
+      renderPortfolio();
+    });
+  }
+
   function switchTab(name) {
     activeTab = name;
     document.querySelectorAll('.tab').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
     document.getElementById('view-dashboard').style.display = name === 'dashboard' ? '' : 'none';
     document.getElementById('view-flow').style.display = name === 'flow' ? '' : 'none';
     document.getElementById('view-stock').style.display = name === 'stock' ? '' : 'none';
+    document.getElementById('view-invest').style.display = name === 'invest' ? '' : 'none';
     if (name === 'flow') renderFlow();
     if (name === 'stock') renderStock();
+    if (name === 'invest') renderPortfolio();
   }
 
   migrateUsers();
   loadAssets();
+  loadPortfolio();
   loadFlow();
   loadUI();
   incomeSort.key = ui.incomeSortKey || 'date';
@@ -3135,6 +3519,7 @@
   entrySort.key = ui.entrySortKey || 'date';
   entrySort.dir = ui.entrySortDir || 'desc';
   setupTabs();
+  setupPortfolio();
   attachChipDrag('expense-chart-order');
   attachChipDrag('income-chart-order');
   document.getElementById('cattrend-mode').addEventListener('change', (e) => {
