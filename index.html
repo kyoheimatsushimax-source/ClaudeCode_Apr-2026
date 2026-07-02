@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'unsafe-inline'; img-src data:; connect-src https://query1.finance.yahoo.com https://query2.finance.yahoo.com https://api.allorigins.win; base-uri 'none'; form-action 'none';" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'unsafe-inline'; img-src data:; connect-src https://query1.finance.yahoo.com https://query2.finance.yahoo.com https://api.allorigins.win https://corsproxy.io https://api.codetabs.com; base-uri 'none'; form-action 'none';" />
 <title>かんたん家計簿</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" crossorigin="anonymous"></script>
 <style>
@@ -1277,13 +1277,13 @@
 <div id="holding-edit-overlay" class="modal-overlay" style="display:none">
   <div class="modal">
     <h2 id="he-title">配当設定</h2>
-    <div class="modal-body">
-      <label>1株あたり 年間配当 (通貨単位)</label>
-      <input type="text" inputmode="decimal" id="he-div-per-share" placeholder="例: 120" />
-      <label style="margin-top:10px;">配当受取月 (複数選択可)</label>
-      <div id="he-months" class="month-picker"></div>
-    </div>
+    <p style="font-size:12px;color:var(--muted);margin:0 0 10px;">
+      各月の <b>1株あたり配当額</b> を入力してください (受け取らない月は空欄)。株価取得時に自動入力されますが、手入力で上書きできます。
+    </p>
+    <div id="he-months" class="month-picker" style="grid-template-columns:repeat(3,1fr);"></div>
+    <div style="font-size:12px;color:var(--muted);margin-top:10px;">年間合計 (1株): <b id="he-annual">—</b></div>
     <div class="modal-actions">
+      <button type="button" id="he-clear" style="margin-right:auto;">クリア</button>
       <button type="button" id="he-cancel">キャンセル</button>
       <button type="button" class="primary" id="he-save">保存</button>
     </div>
@@ -3280,7 +3280,15 @@
     } catch {}
     for (const h of portfolio.holdings) {
       if (!CURRENCIES.includes(h.currency)) h.currency = 'JPY';
-      if (!Array.isArray(h.dividendMonths)) h.dividendMonths = [];
+      // migrate to dividendSchedule { month: perShareAmount }
+      if (!h.dividendSchedule || typeof h.dividendSchedule !== 'object') {
+        h.dividendSchedule = {};
+        if (Array.isArray(h.dividendMonths) && h.dividendPerShare) {
+          for (const m of h.dividendMonths) h.dividendSchedule[m] = h.dividendPerShare;
+        }
+      }
+      delete h.dividendMonths;
+      delete h.dividendPerShare;
     }
   }
   function savePortfolio() { localStorage.setItem(PORTFOLIO_KEY, JSON.stringify(portfolio)); }
@@ -3292,7 +3300,7 @@
       id, name: name.trim(), ticker: (ticker || '').trim(),
       currency: CURRENCIES.includes(currency) ? currency : 'JPY',
       shares: Number(shares) || 0, cost: Number(cost) || 0,
-      price: 0, priceAt: '', dividendPerShare: 0, dividendMonths: [],
+      price: 0, priceAt: '', dividendSchedule: {}, divAuto: false,
     });
     savePortfolio();
   }
@@ -3304,7 +3312,9 @@
   function holdingValue(h) { return (h.price || 0) * (h.shares || 0); }
   function holdingCost(h) { return (h.cost || 0) * (h.shares || 0); }
   function holdingPL(h) { return holdingValue(h) - holdingCost(h); }
-  function holdingAnnualDiv(h) { return (h.dividendPerShare || 0) * (h.shares || 0) * (h.dividendMonths ? h.dividendMonths.length : 0); }
+  function dividendMonthsOf(h) { return Object.keys(h.dividendSchedule || {}).map(Number).sort((a, b) => a - b); }
+  function annualDivPerShare(h) { return Object.values(h.dividendSchedule || {}).reduce((s, v) => s + (Number(v) || 0), 0); }
+  function holdingAnnualDiv(h) { return annualDivPerShare(h) * (h.shares || 0); }
 
   function renderPortfolio() {
     const body = document.getElementById('holdings-body');
@@ -3367,36 +3377,73 @@
     let html = '<div class="gantt">';
     html += '<div class="g-head"></div>' + months.map(m => `<div class="g-head">${m}月</div>`).join('');
     for (const h of hs) {
-      html += `<div class="g-name"><span title="${escapeHtml(h.name)}">${escapeHtml(h.name)}</span><button data-h-div="${h.id}">編集</button></div>`;
-      const perPay = (h.dividendPerShare || 0) * (h.shares || 0);
+      const badge = h.divAuto ? ' <span style="font-size:9px;color:var(--income);">自動</span>' : '';
+      html += `<div class="g-name"><span title="${escapeHtml(h.name)}">${escapeHtml(h.name)}${badge}</span><button data-h-div="${h.id}">編集</button></div>`;
+      const sched = h.dividendSchedule || {};
       for (let m = 1; m <= 12; m++) {
-        const paid = h.dividendMonths && h.dividendMonths.includes(m);
-        const label = paid && perPay > 0 ? fmtForeign(perPay, h.currency).replace(/^[^\d-]*/, '') : (paid ? '●' : '');
-        html += `<div class="g-cell ${paid ? 'paid' : ''}" title="${paid ? h.name + ' ' + m + '月: ' + fmtForeign(perPay, h.currency) : ''}">${label}</div>`;
+        const perShare = Number(sched[m]) || 0;
+        const paid = m in sched && perShare >= 0 && (m in sched);
+        const monthAmt = perShare * (h.shares || 0);
+        const label = paid && monthAmt > 0 ? fmtForeign(monthAmt, h.currency).replace(/^[^\d-]*/, '') : (paid ? '●' : '');
+        html += `<div class="g-cell ${paid ? 'paid' : ''}" title="${paid ? h.name + ' ' + m + '月: ' + fmtForeign(monthAmt, h.currency) + ' (1株' + fmtForeign(perShare, h.currency) + ')' : ''}">${label}</div>`;
       }
     }
     html += '</div>';
     el.innerHTML = html;
   }
 
-  async function fetchQuote(ticker) {
-    const yurl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1d&range=1d`;
-    const tryParse = (json) => {
-      const r = json && json.chart && json.chart.result && json.chart.result[0];
-      const p = r && r.meta && (r.meta.regularMarketPrice ?? r.meta.previousClose);
-      return Number.isFinite(p) ? p : null;
-    };
-    // 1) direct
-    try {
-      const res = await fetch(yurl, { mode: 'cors' });
-      if (res.ok) { const p = tryParse(await res.json()); if (p != null) return p; }
-    } catch {}
-    // 2) allorigins proxy fallback
-    try {
-      const res = await fetch('https://api.allorigins.win/raw?url=' + encodeURIComponent(yurl));
-      if (res.ok) { const p = tryParse(await res.json()); if (p != null) return p; }
-    } catch {}
+  // Try multiple endpoints/proxies to defeat CORS; returns parsed Yahoo chart JSON or null
+  async function fetchChartJSON(ticker) {
+    const path = `/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1d&range=1y&events=div`;
+    const yurls = [
+      'https://query1.finance.yahoo.com' + path,
+      'https://query2.finance.yahoo.com' + path,
+    ];
+    const builders = [];
+    for (const y of yurls) builders.push(() => y);                                   // direct
+    for (const y of yurls) builders.push(() => 'https://corsproxy.io/?url=' + encodeURIComponent(y));
+    for (const y of yurls) builders.push(() => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(y));
+    for (const y of yurls) builders.push(() => 'https://api.codetabs.com/v1/proxy/?quest=' + encodeURIComponent(y));
+    for (const b of builders) {
+      try {
+        const res = await fetch(b());
+        if (!res.ok) continue;
+        const json = await res.json();
+        if (json && json.chart && json.chart.result && json.chart.result[0]) return json;
+      } catch {}
+    }
     return null;
+  }
+  function parsePrice(json) {
+    const r = json.chart.result[0];
+    const m = r.meta || {};
+    let p = m.regularMarketPrice ?? m.chartPreviousClose ?? m.previousClose;
+    if (!Number.isFinite(p)) {
+      // fall back to last close in the series
+      const q = r.indicators && r.indicators.quote && r.indicators.quote[0];
+      const closes = (q && q.close) || [];
+      for (let i = closes.length - 1; i >= 0; i--) if (Number.isFinite(closes[i])) { p = closes[i]; break; }
+    }
+    return Number.isFinite(p) ? p : null;
+  }
+  function parseCurrency(json) {
+    const c = json.chart.result[0].meta && json.chart.result[0].meta.currency;
+    return CURRENCIES.includes(c) ? c : null;
+  }
+  // Build a month->perShare dividend schedule from the last 12 months of dividend events
+  function parseDividendSchedule(json) {
+    const ev = json.chart.result[0].events && json.chart.result[0].events.dividends;
+    if (!ev) return null;
+    const sched = {};
+    const cutoff = Date.now() / 1000 - 366 * 24 * 3600;
+    for (const k in ev) {
+      const d = ev[k];
+      if (!d || !Number.isFinite(d.amount)) continue;
+      if (Number.isFinite(d.date) && d.date < cutoff) continue;
+      const month = new Date((d.date || Number(k)) * 1000).getMonth() + 1;
+      sched[month] = (sched[month] || 0) + d.amount;
+    }
+    return Object.keys(sched).length ? sched : null;
   }
 
   async function refreshAllPrices() {
@@ -3405,38 +3452,54 @@
     const withTicker = portfolio.holdings.filter(h => h.ticker);
     if (withTicker.length === 0) { alert('ティッカーを設定した銘柄がありません'); return; }
     btn.disabled = true;
-    let ok = 0, fail = 0;
+    let ok = 0, fail = 0, divCount = 0;
+    const failed = [];
     const today = new Date().toISOString().slice(0, 10);
     for (const h of withTicker) {
       status.textContent = `取得中… ${h.ticker}`;
-      const p = await fetchQuote(h.ticker);
-      if (p != null) { h.price = Math.round(p * 100) / 100; h.priceAt = today; ok++; }
-      else fail++;
+      const json = await fetchChartJSON(h.ticker);
+      if (!json) { fail++; failed.push(h.ticker); continue; }
+      const p = parsePrice(json);
+      if (p == null) { fail++; failed.push(h.ticker); continue; }
+      h.price = Math.round(p * 100) / 100;
+      h.priceAt = today;
+      const cur = parseCurrency(json);
+      if (cur) h.currency = cur;
+      const sched = parseDividendSchedule(json);
+      if (sched && !h.divManual) { h.dividendSchedule = sched; h.divAuto = true; divCount++; }
+      ok++;
     }
     savePortfolio();
     renderPortfolio();
     btn.disabled = false;
-    status.textContent = `取得完了: 成功${ok}件 / 失敗${fail}件` + (fail > 0 ? ' (失敗分は最新株価を手入力してください)' : '');
+    status.textContent = `株価 成功${ok}/失敗${fail}件・配当自動取得${divCount}件`
+      + (fail > 0 ? ` ｜ 取得失敗: ${failed.join(', ')} (最新株価は手入力可)` : '');
   }
 
+  function heUpdateAnnual() {
+    let sum = 0;
+    document.querySelectorAll('#he-months input').forEach(i => { sum += parseNumInput(i.value) || 0; });
+    const h = portfolio.holdings.find(x => x.id === pfEditingId);
+    document.getElementById('he-annual').textContent = h ? fmtForeign(sum, h.currency) : numComma(sum);
+  }
   function openHoldingDivModal(id) {
     const h = portfolio.holdings.find(x => x.id === id);
     if (!h) return;
     pfEditingId = id;
-    document.getElementById('he-title').textContent = `${h.name} の配当設定`;
-    document.getElementById('he-div-per-share').value = h.dividendPerShare ? numComma(h.dividendPerShare) : '';
+    document.getElementById('he-title').textContent = `${h.name} の配当設定 (${h.currency}/株)`;
     const mp = document.getElementById('he-months');
     mp.innerHTML = '';
+    const sched = h.dividendSchedule || {};
     for (let m = 1; m <= 12; m++) {
-      const on = h.dividendMonths && h.dividendMonths.includes(m);
+      const val = Number(sched[m]);
       const lab = document.createElement('label');
-      lab.className = on ? 'on' : '';
-      lab.innerHTML = `<input type="checkbox" value="${m}" ${on ? 'checked' : ''}/> ${m}月`;
-      lab.querySelector('input').addEventListener('change', (e) => {
-        lab.classList.toggle('on', e.target.checked);
-      });
+      lab.style.flexDirection = 'column';
+      lab.style.alignItems = 'stretch';
+      lab.innerHTML = `<span style="font-size:11px;color:var(--muted);">${m}月</span><input type="text" inputmode="decimal" data-he-month="${m}" value="${Number.isFinite(val) && val > 0 ? numComma(val) : ''}" placeholder="—" style="width:100%;text-align:right;" />`;
       mp.appendChild(lab);
     }
+    mp.querySelectorAll('input').forEach(i => i.addEventListener('input', heUpdateAnnual));
+    heUpdateAnnual();
     document.getElementById('holding-edit-overlay').style.display = 'flex';
   }
   function closeHoldingDivModal() {
@@ -3486,11 +3549,22 @@
     document.getElementById('holding-edit-overlay').addEventListener('click', (e) => {
       if (e.target.id === 'holding-edit-overlay') closeHoldingDivModal();
     });
+    document.getElementById('he-clear').addEventListener('click', () => {
+      document.querySelectorAll('#he-months input').forEach(i => i.value = '');
+      heUpdateAnnual();
+    });
     document.getElementById('he-save').addEventListener('click', () => {
       const h = portfolio.holdings.find(x => x.id === pfEditingId);
       if (!h) return closeHoldingDivModal();
-      h.dividendPerShare = Math.max(0, parseNumInput(document.getElementById('he-div-per-share').value) || 0);
-      h.dividendMonths = Array.from(document.querySelectorAll('#he-months input:checked')).map(i => Number(i.value)).sort((a, b) => a - b);
+      const sched = {};
+      document.querySelectorAll('#he-months input').forEach(i => {
+        const m = Number(i.dataset.heMonth);
+        const v = parseNumInput(i.value);
+        if (Number.isFinite(v) && v > 0) sched[m] = Math.round(v * 100) / 100;
+      });
+      h.dividendSchedule = sched;
+      h.divManual = true;   // user edited → don't overwrite on auto-refresh
+      h.divAuto = false;
       savePortfolio();
       closeHoldingDivModal();
       renderPortfolio();
