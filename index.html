@@ -3446,11 +3446,14 @@
     return Object.keys(sched).length ? sched : null;
   }
 
-  async function refreshAllPrices() {
+  let pfRefreshing = false;
+  async function refreshAllPrices(auto) {
+    if (pfRefreshing) return;
     const btn = document.getElementById('stock-refresh');
     const status = document.getElementById('stock-refresh-status');
     const withTicker = portfolio.holdings.filter(h => h.ticker);
-    if (withTicker.length === 0) { alert('ティッカーを設定した銘柄がありません'); return; }
+    if (withTicker.length === 0) { if (!auto) alert('ティッカーを設定した銘柄がありません'); return; }
+    pfRefreshing = true;
     btn.disabled = true;
     let ok = 0, fail = 0, divCount = 0;
     const failed = [];
@@ -3472,8 +3475,16 @@
     savePortfolio();
     renderPortfolio();
     btn.disabled = false;
-    status.textContent = `株価 成功${ok}/失敗${fail}件・配当自動取得${divCount}件`
+    pfRefreshing = false;
+    status.textContent = (auto ? '自動更新: ' : '') + `株価 成功${ok}/失敗${fail}件・配当自動取得${divCount}件`
       + (fail > 0 ? ` ｜ 取得失敗: ${failed.join(', ')} (最新株価は手入力可)` : '');
+  }
+
+  // 投資タブを開いた時、当日未取得の銘柄があれば自動でバックグラウンド取得
+  function autoRefreshPortfolio() {
+    const today = new Date().toISOString().slice(0, 10);
+    const stale = portfolio.holdings.some(h => h.ticker && h.priceAt !== today);
+    if (stale) refreshAllPrices(true);
   }
 
   function heUpdateAnnual() {
@@ -3544,7 +3555,7 @@
     document.getElementById('dividend-gantt').addEventListener('click', (e) => {
       if (e.target.dataset.hDiv) openHoldingDivModal(e.target.dataset.hDiv);
     });
-    document.getElementById('stock-refresh').addEventListener('click', refreshAllPrices);
+    document.getElementById('stock-refresh').addEventListener('click', () => refreshAllPrices(false));
     document.getElementById('he-cancel').addEventListener('click', closeHoldingDivModal);
     document.getElementById('holding-edit-overlay').addEventListener('click', (e) => {
       if (e.target.id === 'holding-edit-overlay') closeHoldingDivModal();
@@ -3580,7 +3591,7 @@
     document.getElementById('view-invest').style.display = name === 'invest' ? '' : 'none';
     if (name === 'flow') renderFlow();
     if (name === 'stock') renderStock();
-    if (name === 'invest') renderPortfolio();
+    if (name === 'invest') { renderPortfolio(); autoRefreshPortfolio(); }
   }
 
   migrateUsers();
