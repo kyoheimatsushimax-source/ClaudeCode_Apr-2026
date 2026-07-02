@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>ふたごのリバーシ 〜ミミとクゥ〜</title>
+<style>
+  :root {
+    --bg: #fdf3e3;
+    --board-frame: #b98a5a;
+    --board-frame-dark: #96693f;
+    --cell: #a8d977;
+    --cell-dark: #93c95f;
+    --pink: #ff8fab;
+    --pink-dark: #e56d8d;
+    --blue: #7ec8f2;
+    --blue-dark: #58a8d8;
+    --text: #6b4a2e;
+    --accent: #ffd166;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; }
+  body {
+    font-family: "Hiragino Maru Gothic ProN", "BIZ UDGothic", "Rounded Mplus 1c", "Yu Gothic", sans-serif;
+    background: var(--bg);
+    background-image:
+      radial-gradient(circle at 15% 20%, rgba(255,209,102,.25) 0 60px, transparent 61px),
+      radial-gradient(circle at 85% 15%, rgba(255,143,171,.2) 0 50px, transparent 51px),
+      radial-gradient(circle at 75% 85%, rgba(126,200,242,.2) 0 70px, transparent 71px),
+      radial-gradient(circle at 10% 80%, rgba(168,217,119,.25) 0 55px, transparent 56px);
+    color: var(--text);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100%;
+    padding: 12px;
+    user-select: none;
+  }
+  h1 {
+    font-size: clamp(20px, 5vw, 32px);
+    margin: 4px 0 2px;
+    color: #d96a8b;
+    text-shadow: 2px 2px 0 #fff;
+    letter-spacing: 2px;
+  }
+  .subtitle { font-size: clamp(11px, 2.5vw, 14px); margin-bottom: 8px; color: #a07850; }
+
+  /* ---- スコアボード ---- */
+  .scoreboard {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+    width: min(92vw, 460px);
+    justify-content: space-between;
+  }
+  .player-card {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #fff;
+    border-radius: 16px;
+    padding: 6px 12px;
+    box-shadow: 0 3px 0 rgba(0,0,0,.08);
+    border: 3px solid transparent;
+    transition: transform .25s, border-color .25s;
+    min-width: 130px;
+  }
+  .player-card.active {
+    border-color: var(--accent);
+    transform: scale(1.08);
+    box-shadow: 0 4px 0 rgba(0,0,0,.12);
+  }
+  .player-card .face { width: 42px; height: 42px; flex: none; }
+  .player-card .info { display: flex; flex-direction: column; }
+  .player-card .name { font-size: 13px; font-weight: bold; }
+  .player-card .count { font-size: 22px; font-weight: bold; line-height: 1; }
+  #turnBanner {
+    font-size: clamp(13px, 3.2vw, 16px);
+    font-weight: bold;
+    background: #fff;
+    border-radius: 999px;
+    padding: 6px 14px;
+    box-shadow: 0 3px 0 rgba(0,0,0,.08);
+    text-align: center;
+    flex: 1;
+    white-space: nowrap;
+  }
+
+  /* ---- 盤面 ---- */
+  .board-wrap {
+    background: linear-gradient(180deg, var(--board-frame), var(--board-frame-dark));
+    padding: clamp(8px, 2vw, 14px);
+    border-radius: 22px;
+    box-shadow: 0 8px 0 rgba(0,0,0,.15), inset 0 2px 4px rgba(255,255,255,.35);
+  }
+  .board {
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    gap: 3px;
+    width: min(88vw, 440px);
+    height: min(88vw, 440px);
+    background: #7ea84e;
+    border-radius: 10px;
+    padding: 3px;
+  }
+  .cell {
+    background: linear-gradient(180deg, var(--cell), var(--cell-dark));
+    border-radius: 8px;
+    position: relative;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .cell.hint::after {
+    content: "";
+    position: absolute;
+    width: 30%;
+    height: 30%;
+    border-radius: 50%;
+    background: rgba(255,255,255,.55);
+    animation: pulse 1.2s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { transform: scale(1); opacity: .55; }
+    50% { transform: scale(1.35); opacity: .9; }
+  }
+  .disc {
+    width: 86%;
+    height: 86%;
+    position: relative;
+    transform-style: preserve-3d;
+    transition: transform .45s cubic-bezier(.4, 1.4, .6, 1);
+  }
+  .disc.flip-b { transform: rotateY(0deg); }
+  .disc.flip-w { transform: rotateY(180deg); }
+  .disc.pop { animation: pop .35s cubic-bezier(.3, 1.6, .5, 1); }
+  @keyframes pop {
+    0% { scale: 0; } 70% { scale: 1.15; } 100% { scale: 1; }
+  }
+  .disc svg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    backface-visibility: hidden;
+    filter: drop-shadow(0 2px 1px rgba(0,0,0,.2));
+  }
+  .disc svg.side-w { transform: rotateY(180deg); }
+
+  /* ---- ボタン類 ---- */
+  .controls {
+    display: flex;
+    gap: 10px;
+    margin-top: 12px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  button {
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: bold;
+    color: #fff;
+    background: linear-gradient(180deg, #ffb74d, #f59b23);
+    border: none;
+    border-radius: 999px;
+    padding: 10px 20px;
+    cursor: pointer;
+    box-shadow: 0 4px 0 #cf7d0e;
+    transition: transform .1s, box-shadow .1s;
+  }
+  button:active { transform: translateY(3px); box-shadow: 0 1px 0 #cf7d0e; }
+  button.secondary { background: linear-gradient(180deg, #9ad0f0, #63aede); box-shadow: 0 4px 0 #4788b6; }
+  button.secondary:active { box-shadow: 0 1px 0 #4788b6; }
+
+  /* ---- オーバーレイ（メニュー・結果） ---- */
+  .overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(107, 74, 46, .45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+    padding: 16px;
+  }
+  .overlay.hidden { display: none; }
+  .panel {
+    background: #fffaf0;
+    border-radius: 24px;
+    padding: 24px 28px;
+    text-align: center;
+    box-shadow: 0 10px 0 rgba(0,0,0,.2);
+    max-width: 360px;
+    width: 100%;
+    border: 4px solid var(--accent);
+    animation: bounceIn .4s cubic-bezier(.3, 1.5, .5, 1);
+  }
+  @keyframes bounceIn { 0% { scale: .6; opacity: 0; } 100% { scale: 1; opacity: 1; } }
+  .panel h2 { color: #d96a8b; margin-bottom: 12px; font-size: 22px; }
+  .panel p { margin-bottom: 14px; font-size: 14px; line-height: 1.6; }
+  .choice-group { display: flex; flex-direction: column; gap: 10px; margin-bottom: 8px; }
+  .choice-group button { width: 100%; }
+  .result-faces { display: flex; justify-content: center; gap: 12px; margin: 10px 0; }
+  .result-faces .face { width: 72px; height: 72px; }
+  .big-num { font-size: 30px; font-weight: bold; }
+  .vs { font-size: 18px; align-self: center; }
+
+  footer { margin-top: 14px; font-size: 11px; color: #b09372; text-align: center; }
+</style>
+</head>
+<body>
+
+<h1>ふたごのリバーシ</h1>
+<div class="subtitle">〜 ねこのミミ と くまのクゥ 〜</div>
+
+<div class="scoreboard">
+  <div class="player-card" id="cardB">
+    <div class="face" id="faceB"></div>
+    <div class="info">
+      <span class="name">ミミ（あなた）</span>
+      <span class="count" id="countB">2</span>
+    </div>
+  </div>
+  <div id="turnBanner">ミミのばん!</div>
+  <div class="player-card" id="cardW">
+    <div class="face" id="faceW"></div>
+    <div class="info">
+      <span class="name" id="nameW">クゥ（CPU）</span>
+      <span class="count" id="countW">2</span>
+    </div>
+  </div>
+</div>
+
+<div class="board-wrap"><div class="board" id="board"></div></div>
+
+<div class="controls">
+  <button class="secondary" id="btnHint">ヒント</button>
+  <button class="secondary" id="btnUndo">まったなし!</button>
+  <button id="btnMenu">さいしょから</button>
+</div>
+
+<footer>おけるマスをタップしてね。あいてのコマをはさむと、じぶんのいろにかわるよ!</footer>
+
+<!-- スタートメニュー -->
+<div class="overlay" id="menuOverlay">
+  <div class="panel">
+    <h2>ふたごのリバーシ</h2>
+    <div class="result-faces">
+      <div class="face" id="menuFaceB"></div>
+      <div class="face" id="menuFaceW"></div>
+    </div>
+    <p>ねこのミミちゃんと、くまのクゥくんの<br>たのしいリバーシであそぼう!</p>
+    <div class="choice-group">
+      <button data-mode="easy">🌱 やさしい CPU とあそぶ</button>
+      <button data-mode="normal">🌼 ふつうの CPU とあそぶ</button>
+      <button data-mode="hard">🔥 つよい CPU とあそぶ</button>
+      <button class="secondary" data-mode="pvp">👫 ふたりであそぶ</button>
+    </div>
+  </div>
+</div>
+
+<!-- 結果 -->
+<div class="overlay hidden" id="resultOverlay">
+  <div class="panel">
+    <h2 id="resultTitle"></h2>
+    <div class="result-faces">
+      <div class="face" id="resultFaceB"></div>
+      <span class="vs">×</span>
+      <div class="face" id="resultFaceW"></div>
+    </div>
+    <p><span class="big-num" id="resultB"></span> 対 <span class="big-num" id="resultW"></span></p>
+    <div class="choice-group">
+      <button id="btnRetry">もういちど!</button>
+      <button class="secondary" id="btnBackMenu">メニューにもどる</button>
+    </div>
+  </div>
+</div>
+
+<script>
+"use strict";
+
+/* ================= キャラクター SVG（オリジナル） ================= */
+// B = ねこのミミ（ピンク） / W = くまのクゥ（みずいろ）
+function catFace(size) {
+  return `<svg viewBox="0 0 100 100" width="${size}" height="${size}">
+    <polygon points="18,38 12,8 40,22" fill="#ff8fab" stroke="#e56d8d" stroke-width="4" stroke-linejoin="round"/>
+    <polygon points="82,38 88,8 60,22" fill="#ff8fab" stroke="#e56d8d" stroke-width="4" stroke-linejoin="round"/>
+    <circle cx="50" cy="55" r="38" fill="#ff8fab" stroke="#e56d8d" stroke-width="4"/>
+    <circle cx="36" cy="50" r="4.5" fill="#5b3a29"/>
+    <circle cx="64" cy="50" r="4.5" fill="#5b3a29"/>
+    <circle cx="27" cy="62" r="6" fill="#ffc2d1" opacity=".8"/>
+    <circle cx="73" cy="62" r="6" fill="#ffc2d1" opacity=".8"/>
+    <path d="M46 60 Q50 64 54 60" fill="none" stroke="#5b3a29" stroke-width="3" stroke-linecap="round"/>
+    <path d="M50 63 Q44 72 38 68 M50 63 Q56 72 62 68" fill="none" stroke="#5b3a29" stroke-width="3" stroke-linecap="round"/>
+  </svg>`;
+}
+function bearFace(size) {
+  return `<svg viewBox="0 0 100 100" width="${size}" height="${size}">
+    <circle cx="22" cy="24" r="13" fill="#7ec8f2" stroke="#58a8d8" stroke-width="4"/>
+    <circle cx="78" cy="24" r="13" fill="#7ec8f2" stroke="#58a8d8" stroke-width="4"/>
+    <circle cx="22" cy="24" r="5" fill="#b8e3fa"/>
+    <circle cx="78" cy="24" r="5" fill="#b8e3fa"/>
+    <circle cx="50" cy="56" r="38" fill="#7ec8f2" stroke="#58a8d8" stroke-width="4"/>
+    <circle cx="36" cy="50" r="4.5" fill="#3d5166"/>
+    <circle cx="64" cy="50" r="4.5" fill="#3d5166"/>
+    <ellipse cx="50" cy="66" rx="14" ry="11" fill="#dff2fc"/>
+    <ellipse cx="50" cy="61" rx="5" ry="4" fill="#3d5166"/>
+    <path d="M50 65 Q50 71 44 72 M50 65 Q50 71 56 72" fill="none" stroke="#3d5166" stroke-width="3" stroke-linecap="round"/>
+  </svg>`;
+}
+// コマ用（円形ベース + 顔）
+function discSvg(color) {
+  const isB = color === "B";
+  const body = isB ? "#ff8fab" : "#7ec8f2";
+  const edge = isB ? "#e56d8d" : "#58a8d8";
+  const eye  = isB ? "#5b3a29" : "#3d5166";
+  const deco = isB
+    ? `<polygon points="26,26 22,10 38,20" fill="${body}" stroke="${edge}" stroke-width="3" stroke-linejoin="round"/>
+       <polygon points="74,26 78,10 62,20" fill="${body}" stroke="${edge}" stroke-width="3" stroke-linejoin="round"/>
+       <path d="M44 58 Q50 63 56 58" fill="none" stroke="${eye}" stroke-width="3" stroke-linecap="round"/>`
+    : `<circle cx="26" cy="18" r="9" fill="${body}" stroke="${edge}" stroke-width="3"/>
+       <circle cx="74" cy="18" r="9" fill="${body}" stroke="${edge}" stroke-width="3"/>
+       <ellipse cx="50" cy="60" rx="11" ry="8" fill="#fff" opacity=".85"/>
+       <ellipse cx="50" cy="57" rx="4" ry="3" fill="${eye}"/>`;
+  return `<svg viewBox="0 0 100 100" class="side-${isB ? "b" : "w"}">
+    <circle cx="50" cy="52" r="42" fill="${body}" stroke="${edge}" stroke-width="5"/>
+    ${deco}
+    <circle cx="38" cy="48" r="4" fill="${eye}"/>
+    <circle cx="62" cy="48" r="4" fill="${eye}"/>
+    <circle cx="30" cy="58" r="5" fill="#ffffff" opacity=".45"/>
+    <circle cx="70" cy="58" r="5" fill="#ffffff" opacity=".45"/>
+  </svg>`;
+}
+
+/* ================= ゲームロジック ================= */
+const SIZE = 8;
+const DIRS = [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]];
+const EMPTY = ".", B = "B", W = "W";
+
+let board, turn, mode, history, busy;
+
+function newBoard() {
+  const b = Array.from({ length: SIZE }, () => Array(SIZE).fill(EMPTY));
+  b[3][3] = W; b[3][4] = B; b[4][3] = B; b[4][4] = W;
+  return b;
+}
+const inRange = (r, c) => r >= 0 && r < SIZE && c >= 0 && c < SIZE;
+const opp = p => (p === B ? W : B);
+
+function flipsFor(bd, r, c, p) {
+  if (bd[r][c] !== EMPTY) return [];
+  const out = [];
+  for (const [dr, dc] of DIRS) {
+    const line = [];
+    let rr = r + dr, cc = c + dc;
+    while (inRange(rr, cc) && bd[rr][cc] === opp(p)) { line.push([rr, cc]); rr += dr; cc += dc; }
+    if (line.length && inRange(rr, cc) && bd[rr][cc] === p) out.push(...line);
+  }
+  return out;
+}
+function validMoves(bd, p) {
+  const mv = [];
+  for (let r = 0; r < SIZE; r++)
+    for (let c = 0; c < SIZE; c++)
+      if (flipsFor(bd, r, c, p).length) mv.push([r, c]);
+  return mv;
+}
+function applyMove(bd, r, c, p) {
+  const flips = flipsFor(bd, r, c, p);
+  bd[r][c] = p;
+  for (const [rr, cc] of flips) bd[rr][cc] = p;
+  return flips;
+}
+function countDiscs(bd) {
+  let nb = 0, nw = 0;
+  for (const row of bd) for (const v of row) { if (v === B) nb++; else if (v === W) nw++; }
+  return [nb, nw];
+}
+
+/* ================= CPU ================= */
+const WEIGHTS = [
+  [120,-25, 12,  6,  6, 12,-25,120],
+  [-25,-45, -4, -4, -4, -4,-45,-25],
+  [ 12, -4,  3,  1,  1,  3, -4, 12],
+  [  6, -4,  1,  0,  0,  1, -4,  6],
+  [  6, -4,  1,  0,  0,  1, -4,  6],
+  [ 12, -4,  3,  1,  1,  3, -4, 12],
+  [-25,-45, -4, -4, -4, -4,-45,-25],
+  [120,-25, 12,  6,  6, 12,-25,120],
+];
+function evaluate(bd, p) {
+  let score = 0;
+  for (let r = 0; r < SIZE; r++)
+    for (let c = 0; c < SIZE; c++) {
+      if (bd[r][c] === p) score += WEIGHTS[r][c];
+      else if (bd[r][c] === opp(p)) score -= WEIGHTS[r][c];
+    }
+  score += 4 * (validMoves(bd, p).length - validMoves(bd, opp(p)).length);
+  return score;
+}
+function cloneBoard(bd) { return bd.map(row => row.slice()); }
+
+function minimax(bd, p, me, depth, alpha, beta) {
+  const moves = validMoves(bd, p);
+  if (depth === 0 || (!moves.length && !validMoves(bd, opp(p)).length)) {
+    return evaluate(bd, me);
+  }
+  if (!moves.length) return minimax(bd, opp(p), me, depth - 1, alpha, beta);
+  if (p === me) {
+    let best = -Infinity;
+    for (const [r, c] of moves) {
+      const nb = cloneBoard(bd);
+      applyMove(nb, r, c, p);
+      best = Math.max(best, minimax(nb, opp(p), me, depth - 1, alpha, beta));
+      alpha = Math.max(alpha, best);
+      if (beta <= alpha) break;
+    }
+    return best;
+  } else {
+    let best = Infinity;
+    for (const [r, c] of moves) {
+      const nb = cloneBoard(bd);
+      applyMove(nb, r, c, p);
+      best = Math.min(best, minimax(nb, opp(p), me, depth - 1, alpha, beta));
+      beta = Math.min(beta, best);
+      if (beta <= alpha) break;
+    }
+    return best;
+  }
+}
+
+function cpuChoose() {
+  const moves = validMoves(board, W);
+  if (!moves.length) return null;
+  if (mode === "easy") {
+    return moves[Math.floor(Math.random() * moves.length)];
+  }
+  if (mode === "normal") {
+    // もっとも多くひっくり返せる手を選ぶ（角があれば角優先）
+    const corner = moves.find(([r, c]) => (r === 0 || r === 7) && (c === 0 || c === 7));
+    if (corner) return corner;
+    let best = moves[0], bestN = -1;
+    for (const [r, c] of moves) {
+      const n = flipsFor(board, r, c, W).length;
+      if (n > bestN) { bestN = n; best = [r, c]; }
+    }
+    return best;
+  }
+  // hard: 位置評価つき αβ探索
+  let best = moves[0], bestScore = -Infinity;
+  for (const [r, c] of moves) {
+    const nb = cloneBoard(board);
+    applyMove(nb, r, c, W);
+    const s = minimax(nb, B, W, 3, -Infinity, Infinity);
+    if (s > bestScore) { bestScore = s; best = [r, c]; }
+  }
+  return best;
+}
+
+/* ================= 効果音（WebAudio・素材不要） ================= */
+let audioCtx = null;
+function beep(freq, dur, type = "sine", vol = .15, delay = 0) {
+  try {
+    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    const t = audioCtx.currentTime + delay;
+    const osc = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    osc.type = type; osc.frequency.value = freq;
+    g.gain.setValueAtTime(vol, t);
+    g.gain.exponentialRampToValueAtTime(.001, t + dur);
+    osc.connect(g).connect(audioCtx.destination);
+    osc.start(t); osc.stop(t + dur);
+  } catch (e) { /* 音が出せない環境では無視 */ }
+}
+const sndPlace = () => { beep(523, .12, "triangle"); beep(784, .15, "triangle", .12, .06); };
+const sndFlip  = () => beep(660, .08, "sine", .08);
+const sndWin   = () => [523, 659, 784, 1047].forEach((f, i) => beep(f, .25, "triangle", .15, i * .15));
+const sndLose  = () => [400, 350, 300].forEach((f, i) => beep(f, .3, "sine", .12, i * .2));
+const sndPass  = () => beep(330, .2, "square", .08);
+
+/* ================= 描画 ================= */
+const boardEl = document.getElementById("board");
+const cells = [];
+
+function buildBoard() {
+  boardEl.innerHTML = "";
+  cells.length = 0;
+  for (let r = 0; r < SIZE; r++) {
+    for (let c = 0; c < SIZE; c++) {
+      const cell = document.createElement("div");
+      cell.className = "cell";
+      cell.addEventListener("click", () => onCellTap(r, c));
+      boardEl.appendChild(cell);
+      cells.push(cell);
+    }
+  }
+}
+
+function render(newDisc = null, flipped = []) {
+  const flipSet = new Set(flipped.map(([r, c]) => r * SIZE + c));
+  for (let r = 0; r < SIZE; r++) {
+    for (let c = 0; c < SIZE; c++) {
+      const idx = r * SIZE + c;
+      const cell = cells[idx];
+      const v = board[r][c];
+      cell.classList.remove("hint");
+      let disc = cell.querySelector(".disc");
+      if (v === EMPTY) { if (disc) disc.remove(); continue; }
+      if (!disc) {
+        disc = document.createElement("div");
+        disc.className = "disc";
+        disc.innerHTML = discSvg(B) + discSvg(W);
+        cell.appendChild(disc);
+        if (newDisc && newDisc[0] === r && newDisc[1] === c) disc.classList.add("pop");
+      }
+      const targetClass = v === B ? "flip-b" : "flip-w";
+      if (!disc.classList.contains(targetClass)) {
+        if (flipSet.has(idx)) {
+          // 波のように順番にひっくり返す
+          const delay = 60 * (Math.abs(r - newDisc[0]) + Math.abs(c - newDisc[1]));
+          setTimeout(() => {
+            disc.classList.remove("flip-b", "flip-w");
+            disc.classList.add(targetClass);
+            sndFlip();
+          }, delay);
+        } else {
+          disc.classList.remove("flip-b", "flip-w");
+          disc.classList.add(targetClass);
+        }
+      }
+    }
+  }
+  const [nb, nw] = countDiscs(board);
+  document.getElementById("countB").textContent = nb;
+  document.getElementById("countW").textContent = nw;
+  document.getElementById("cardB").classList.toggle("active", turn === B);
+  document.getElementById("cardW").classList.toggle("active", turn === W);
+}
+
+function setBanner(text) { document.getElementById("turnBanner").textContent = text; }
+
+function showHints() {
+  for (const [r, c] of validMoves(board, turn)) cells[r * SIZE + c].classList.add("hint");
+}
+
+/* ================= 進行 ================= */
+function startGame(m) {
+  mode = m;
+  board = newBoard();
+  turn = B;
+  history = [];
+  busy = false;
+  document.getElementById("nameW").textContent = mode === "pvp" ? "クゥ（2P）" : "クゥ（CPU）";
+  document.getElementById("menuOverlay").classList.add("hidden");
+  document.getElementById("resultOverlay").classList.add("hidden");
+  render();
+  setBanner("ミミのばん!");
+}
+
+function onCellTap(r, c) {
+  if (busy) return;
+  if (mode !== "pvp" && turn !== B) return;
+  const flips = flipsFor(board, r, c, turn);
+  if (!flips.length) return;
+  history.push({ board: cloneBoard(board), turn });
+  const mover = turn;
+  applyMove(board, r, c, mover);
+  sndPlace();
+  render([r, c], flips);
+  advanceTurn(mover, flips.length);
+}
+
+function advanceTurn(mover, flipCount) {
+  busy = true;
+  const wait = 500 + 60 * flipCount;
+  setTimeout(() => {
+    const next = opp(mover);
+    if (validMoves(board, next).length) {
+      turn = next;
+    } else if (validMoves(board, mover).length) {
+      turn = mover;
+      sndPass();
+      setBanner((next === B ? "ミミ" : "クゥ") + "はおけないよ… パス!");
+      render();
+      setTimeout(() => afterTurnSet(), 900);
+      return;
+    } else {
+      finishGame();
+      return;
+    }
+    afterTurnSet();
+  }, wait);
+}
+
+function afterTurnSet() {
+  render();
+  setBanner(turn === B ? "ミミのばん!" : "クゥのばん!");
+  if (mode !== "pvp" && turn === W) {
+    busy = true;
+    setTimeout(cpuPlay, 700);
+  } else {
+    busy = false;
+  }
+}
+
+function cpuPlay() {
+  const move = cpuChoose();
+  if (!move) { finishGame(); return; }
+  const [r, c] = move;
+  const flips = flipsFor(board, r, c, W);
+  applyMove(board, r, c, W);
+  sndPlace();
+  render([r, c], flips);
+  advanceTurn(W, flips.length);
+}
+
+function finishGame() {
+  busy = true;
+  const [nb, nw] = countDiscs(board);
+  const title = document.getElementById("resultTitle");
+  document.getElementById("resultB").textContent = nb;
+  document.getElementById("resultW").textContent = nw;
+  if (nb > nw) {
+    title.textContent = mode === "pvp" ? "ミミのかち! 🎉" : "あなたのかち! 🎉";
+    sndWin();
+  } else if (nw > nb) {
+    title.textContent = mode === "pvp" ? "クゥのかち! 🎉" : "ざんねん… クゥのかち";
+    mode === "pvp" ? sndWin() : sndLose();
+  } else {
+    title.textContent = "ひきわけ! なかよし✨";
+    sndWin();
+  }
+  setBanner("おしまい!");
+  setTimeout(() => document.getElementById("resultOverlay").classList.remove("hidden"), 800);
+}
+
+/* ================= ボタン ================= */
+document.getElementById("btnHint").addEventListener("click", () => { if (!busy) showHints(); });
+document.getElementById("btnUndo").addEventListener("click", () => {
+  if (busy || !history.length) return;
+  // CPU戦では「自分の手番の直前」まで戻す
+  let snap = history.pop();
+  if (mode !== "pvp") {
+    while (snap && snap.turn !== B && history.length) snap = history.pop();
+    if (snap.turn !== B) return;
+  }
+  board = snap.board;
+  turn = snap.turn;
+  render();
+  setBanner(turn === B ? "ミミのばん!" : "クゥのばん!");
+});
+document.getElementById("btnMenu").addEventListener("click", () => {
+  document.getElementById("menuOverlay").classList.remove("hidden");
+});
+document.getElementById("btnRetry").addEventListener("click", () => startGame(mode));
+document.getElementById("btnBackMenu").addEventListener("click", () => {
+  document.getElementById("resultOverlay").classList.add("hidden");
+  document.getElementById("menuOverlay").classList.remove("hidden");
+});
+document.querySelectorAll("#menuOverlay [data-mode]").forEach(btn => {
+  btn.addEventListener("click", () => startGame(btn.dataset.mode));
+});
+
+/* ================= 初期化 ================= */
+for (const [id, fn] of [["faceB", catFace], ["faceW", bearFace], ["menuFaceB", catFace], ["menuFaceW", bearFace], ["resultFaceB", catFace], ["resultFaceW", bearFace]]) {
+  document.getElementById(id).innerHTML = fn("100%");
+}
+document.getElementById("menuOverlay").classList.remove("hidden");
+buildBoard();
+board = newBoard();
+turn = B;
+mode = "easy";
+history = [];
+busy = true; // メニューが開いている間は操作不可
+render();
+</script>
+</body>
+</html>
