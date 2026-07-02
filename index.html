@@ -2,8 +2,17 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>ふたごのリバーシ 〜ミミとクゥ〜</title>
+<meta name="theme-color" content="#fdf3e3">
+<link rel="manifest" href="manifest.webmanifest">
+<!-- iPhone: ホーム画面に追加したとき全画面のアプリとして動かす -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="ふたごリバーシ">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
 <style>
   :root {
     --bg: #fdf3e3;
@@ -34,6 +43,8 @@
     align-items: center;
     min-height: 100%;
     padding: 12px;
+    padding-top: calc(12px + env(safe-area-inset-top));
+    padding-bottom: calc(12px + env(safe-area-inset-bottom));
     user-select: none;
   }
   h1 {
@@ -662,6 +673,16 @@ document.getElementById("btnBackMenu").addEventListener("click", () => {
 document.querySelectorAll("#menuOverlay [data-mode]").forEach(btn => {
   btn.addEventListener("click", () => startGame(btn.dataset.mode));
 });
+
+/* ================= オフライン対応（Service Worker） ================= */
+// file:// で直接開いたときは Service Worker が使えないのでスキップする
+if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("sw.js").catch(() => {
+      /* 登録に失敗してもゲーム自体はそのまま遊べる */
+    });
+  });
+}
 
 /* ================= 初期化 ================= */
 for (const [id, fn] of [["faceB", catFace], ["faceW", bearFace], ["menuFaceB", catFace], ["menuFaceW", bearFace], ["resultFaceB", catFace], ["resultFaceW", bearFace]]) {
