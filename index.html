@@ -1253,6 +1253,7 @@
       <div class="stock-summary-item invest" style="border-left-color:#f59e0b;">
         <div class="stock-label">年間配当 (予定)</div>
         <div class="stock-value" id="pf-div">¥0</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px;" id="pf-yield">—</div>
       </div>
     </div>
     <div style="overflow-x:auto;margin-top:14px;">
@@ -1265,6 +1266,7 @@
             <th style="text-align:right">最新株価</th>
             <th style="text-align:right">評価額</th>
             <th style="text-align:right">含み損益</th>
+            <th style="text-align:right">利回り</th>
             <th></th>
           </tr>
         </thead>
@@ -3356,6 +3358,12 @@
         const plPct = holdingCost(h) > 0 ? (pl / holdingCost(h)) * 100 : 0;
         const plCls = pl > 0 ? 'pl-pos' : pl < 0 ? 'pl-neg' : '';
         const priceStale = h.priceAt ? '' : '<span class="price-stale">未取得</span>';
+        const divPS = annualDivPerShare(h);
+        const curYield = divPS > 0 && h.price > 0 ? (divPS / h.price) * 100 : null;
+        const costYield = divPS > 0 && h.cost > 0 ? (divPS / h.cost) * 100 : null;
+        const yieldCell = curYield === null && costYield === null
+          ? '<span style="color:var(--muted);">—</span>'
+          : `${curYield !== null ? curYield.toFixed(2) + '%' : '—'}<br><span style="font-size:10px;color:var(--muted);" title="取得単価ベース">取得比 ${costYield !== null ? costYield.toFixed(2) + '%' : '—'}</span>`;
         return `
         <tr data-h-id="${h.id}">
           <td>${escapeHtml(h.name)}</td>
@@ -3366,6 +3374,7 @@
           <td class="num"><input class="h-inp" inputmode="decimal" data-h-field="price" value="${h.price ? numComma(h.price) : ''}" placeholder="手入力可" />${priceStale}</td>
           <td class="num">${fmtForeign(val, h.currency)}</td>
           <td class="num ${plCls}">${pl >= 0 ? '+' : ''}${fmtForeign(pl, h.currency)}<br><span style="font-size:10px;">${plPct >= 0 ? '+' : ''}${plPct.toFixed(1)}%</span></td>
+          <td class="num">${yieldCell}</td>
           <td style="white-space:nowrap;"><button class="row-edit-btn" data-h-div="${h.id}" title="配当設定">📅</button><button class="delete-btn" data-h-del="${h.id}" title="削除">×</button></td>
         </tr>`;
       }).join('');
@@ -3387,6 +3396,11 @@
     const plEl = document.getElementById('pf-pl');
     plEl.textContent = (plJPY >= 0 ? '+' : '') + fmt(plJPY);
     document.getElementById('pf-div').textContent = fmt(divJPY);
+    const curY = divJPY > 0 && valJPY > 0 ? (divJPY / valJPY) * 100 : null;
+    const costY = divJPY > 0 && costJPY > 0 ? (divJPY / costJPY) * 100 : null;
+    document.getElementById('pf-yield').textContent = curY === null && costY === null
+      ? '—'
+      : `利回り ${curY !== null ? curY.toFixed(2) + '%' : '—'} ｜ 取得比 ${costY !== null ? costY.toFixed(2) + '%' : '—'}`;
     document.getElementById('stock-refresh-status').textContent = missingRate ? '⚠ 外貨レート未設定 (ストックタブで設定)' : '';
 
     renderDividendGantt();
