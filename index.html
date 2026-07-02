@@ -992,12 +992,12 @@
   </section>
 
   <section class="card form-card">
-    <h2>💳 クレカ明細インポート (CSV)</h2>
+    <h2>💳 クレカ明細インポート (CSV / PDF)</h2>
     <div class="cc-import-box" id="cc-drop">
-      <p>CSV ファイル (.csv) をドラッグ&ドロップ、またはクリックして選択<br>
-      取り込み内容を確認してから登録できます。日付・金額・店舗を自動検出します (Shift_JIS / UTF-8 両対応)。</p>
+      <p id="cc-drop-msg">CSV または PDF をドラッグ&ドロップ、またはクリックして選択<br>
+      取り込み内容を確認してから登録できます。日付・金額・店舗を自動検出します (CSVはShift_JIS/UTF-8両対応、PDFはテキスト型のみ)。</p>
       <button type="button" class="primary" id="cc-pick-btn">ファイルを選択</button>
-      <input type="file" id="cc-file" accept=".csv,text/csv,application/csv,application/vnd.ms-excel,text/plain" style="display:none" />
+      <input type="file" id="cc-file" accept=".csv,.pdf,text/csv,application/csv,application/pdf,application/vnd.ms-excel,text/plain" style="display:none" />
     </div>
   </section>
 
@@ -2426,15 +2426,19 @@
       const y = m[3].length === 2 ? '20' + m[3] : m[3];
       return `${y}-${m[1].padStart(2,'0')}-${m[2].padStart(2,'0')}`;
     }
+    if (!/[\/\-年月.]/.test(s)) return null; // 純粋な数値 (金額等) を日付と誤認しない
     const d = new Date(s);
-    if (!isNaN(d)) return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    if (!isNaN(d) && d.getFullYear() >= 1990 && d.getFullYear() <= 2100) {
+      return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    }
     return null;
   }
 
   function parseAmountCell(v) {
     if (v == null || v === '') return null;
     if (typeof v === 'number') return Math.round(v);
-    let s = String(v).replace(/[,¥￥\s円]/g, '');
+    let s = String(v).replace(/[,，¥￥\s円]/g, '');
+    s = s.replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0));
     let neg = false;
     if (/^\(.*\)$/.test(s)) { neg = true; s = s.slice(1, -1); }
     if (/^[▲△−－‐]/.test(s)) { neg = true; s = s.slice(1); }
@@ -2644,8 +2648,117 @@
     return text;
   }
 
+  // ---- PDF import (pdf.js を必要時のみCDNから読込) ----
+  let pdfJsPromise = null;
+  function loadPdfJs() {
+    if (window.pdfjsLib) return Promise.resolve(window.pdfjsLib);
+    if (pdfJsPromise) return pdfJsPromise;
+    pdfJsPromise = new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js';
+      s.onload = () => {
+        try {
+          window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+        } catch {}
+        resolve(window.pdfjsLib);
+      };
+      s.onerror = () => { pdfJsPromise = null; reject(new Error('PDF解析ライブラリを読み込めませんでした (インターネット接続を確認してください)')); };
+      document.head.appendChild(s);
+    });
+    return pdfJsPromise;
+  }
+
+  // テキスト断片を座標で行にグルーピングして 2次元配列に復元
+  async function pdfToRows(doc) {
+    const rows = [];
+    for (let p = 1; p <= doc.numPages; p++) {
+      const page = await doc.getPage(p);
+      const tc = await page.getTextContent();
+      const frags = tc.items
+        .map(it => ({ str: String(it.str || '').trim(), x: it.transform[4], y: it.transform[5] }))
+        .filter(f => f.str);
+      const lines = [];
+      for (const f of frags) {
+        let line = null;
+        for (const L of lines) { if (Math.abs(L.y - f.y) < 3.5) { line = L; break; } }
+        if (line) line.frags.push(f);
+        else lines.push({ y: f.y, frags: [f] });
+      }
+      lines.sort((a, b) => b.y - a.y);
+      for (const L of lines) {
+        L.frags.sort((a, b) => a.x - b.x);
+        rows.push(L.frags.map(f => f.str));
+      }
+    }
+    return rows;
+  }
+
+  function isAmountToken(s) {
+    return /^[-−▲△(]?[¥￥]?[\d０-９,，]+(\.\d+)?(円)?\)?$/.test(String(s).trim());
+  }
+
+  // PDF行から 日付+金額+店舗 を抽出 (列ヘッダーに依存しないヒューリスティック)
+  function extractFromPdfRows(rows) {
+    let currentUser = null;
+    const out = [];
+    for (const row of rows) {
+      const cardUser = detectCardUser(row);
+      if (cardUser) currentUser = cardUser;
+      let dateIdx = -1, date = null;
+      for (let i = 0; i < row.length; i++) {
+        const d = parseDateCell(row[i]);
+        if (d) { dateIdx = i; date = d; break; }
+      }
+      if (!date) continue;
+      const cands = [];
+      for (let i = dateIdx + 1; i < row.length; i++) {
+        const s = row[i];
+        if (parseDateCell(s)) continue;
+        if (!isAmountToken(s)) continue;
+        const a = parseAmountCell(s);
+        if (a === null || a === 0) continue;
+        cands.push({ i, a, s });
+      }
+      if (cands.length === 0) continue;
+      // 利用金額らしい候補を優先: カンマ/¥/円付き → 3桁以上 → 先頭
+      const pick = cands.find(c => /[,，¥￥円]/.test(c.s)) || cands.find(c => Math.abs(c.a) >= 100) || cands[0];
+      const memo = row.slice(dateIdx + 1, pick.i)
+        .filter(s => !isAmountToken(s))
+        .filter(s => !/^(\d+回(払い?)?|1回払い?|リボ(払い?)?|分割|ボーナス(一括|払い?)?|翌月|当月)$/.test(s.trim()))
+        .join(' ').trim().slice(0, 200);
+      out.push({ date, amount: pick.a, memo, user: currentUser || 'K' });
+    }
+    return { ok: true, items: out };
+  }
+
+  async function readCcPdf(file) {
+    const msgEl = document.getElementById('cc-drop-msg');
+    const orig = msgEl.innerHTML;
+    try {
+      msgEl.textContent = '📄 PDF を解析しています…';
+      const lib = await loadPdfJs();
+      const buf = await file.arrayBuffer();
+      const doc = await lib.getDocument({ data: new Uint8Array(buf) }).promise;
+      const rows = await pdfToRows(doc);
+      const result = extractFromPdfRows(rows);
+      if (result.items.length === 0) {
+        const hasText = rows.some(r => r.length > 0);
+        alert(hasText
+          ? 'PDFから明細行 (日付+金額) を検出できませんでした。レイアウトが特殊な可能性があります。CSVでの取込をお試しください。'
+          : 'このPDFにはテキストが含まれていません (スキャン画像PDF)。文字認識ができないため、CSVでの取込をご利用ください。');
+        return;
+      }
+      showCcPreview(result.items);
+    } catch (e) {
+      alert('PDFを解析できませんでした: ' + e.message);
+    } finally {
+      msgEl.innerHTML = orig;
+    }
+  }
+
   function readCcFile(file) {
     if (!file) return;
+    if (/\.pdf$/i.test(file.name || '') || file.type === 'application/pdf') { readCcPdf(file); return; }
     const reader = new FileReader();
     reader.onload = (ev) => {
       try {
