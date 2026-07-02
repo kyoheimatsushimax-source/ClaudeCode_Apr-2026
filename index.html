@@ -1446,7 +1446,7 @@
   function allCategories(type) { return CATEGORIES[type].concat(CATEGORIES_LEGACY[type]); }
   const PAYERS = ['家族', 'K', 'C'];
   const USERS = ['K', 'C'];
-  const CARD_USERS = { '1047': 'K', '2011': 'C' };
+  const CARD_USERS = { '1120': 'K', '1047': 'K', '2011': 'C' };
   const NAME_USERS = { '恭平': 'K', '智姫': 'C' };
   function payerOf(e) { return PAYERS.includes(e.payer) ? e.payer : '家族'; }
   function userOf(e) { return USERS.includes(e.user) ? e.user : null; }
