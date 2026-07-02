@@ -683,6 +683,29 @@
     min-width: 720px;
     font-size: 11px;
   }
+  .gantt.with-total {
+    grid-template-columns: 160px repeat(12, 1fr) 100px;
+    min-width: 820px;
+  }
+  .gantt .g-total-cell {
+    min-height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding-right: 6px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    background: var(--bg);
+    border-radius: 4px;
+    font-size: 11px;
+  }
+  .gantt .g-sum-row {
+    background: #eff6ff;
+    color: #1e40af;
+    border-top: 2px solid var(--primary);
+    border-radius: 0 0 4px 4px;
+  }
+  .gantt .g-grand { background: var(--primary); color: white; }
   .gantt .g-head {
     text-align: center;
     color: var(--muted);
@@ -3373,22 +3396,41 @@
     const el = document.getElementById('dividend-gantt');
     const hs = portfolio.holdings;
     if (hs.length === 0) { el.innerHTML = '<div class="gantt-empty">保有株式を追加すると配当スケジュールが表示されます。</div>'; return; }
+    const mk = ym(viewMonth);
     const months = ['1','2','3','4','5','6','7','8','9','10','11','12'];
-    let html = '<div class="gantt">';
-    html += '<div class="g-head"></div>' + months.map(m => `<div class="g-head">${m}月</div>`).join('');
+    const monthTotalsJPY = new Array(13).fill(0); // index 1..12
+    let missingRate = false;
+    let html = '<div class="gantt with-total">';
+    html += '<div class="g-head"></div>' + months.map(m => `<div class="g-head">${m}月</div>`).join('') + '<div class="g-head">年間合計</div>';
     for (const h of hs) {
       const badge = h.divAuto ? ' <span style="font-size:9px;color:var(--income);">自動</span>' : '';
       html += `<div class="g-name"><span title="${escapeHtml(h.name)}">${escapeHtml(h.name)}${badge}</span><button data-h-div="${h.id}">編集</button></div>`;
       const sched = h.dividendSchedule || {};
+      let rowTotal = 0;
       for (let m = 1; m <= 12; m++) {
         const perShare = Number(sched[m]) || 0;
-        const paid = m in sched && perShare >= 0 && (m in sched);
+        const paid = m in sched;
         const monthAmt = perShare * (h.shares || 0);
+        rowTotal += monthAmt;
+        if (monthAmt > 0) {
+          const jpy = toJPY(monthAmt, h.currency, mk);
+          if (jpy === null) missingRate = true; else monthTotalsJPY[m] += jpy;
+        }
         const label = paid && monthAmt > 0 ? fmtForeign(monthAmt, h.currency).replace(/^[^\d-]*/, '') : (paid ? '●' : '');
         html += `<div class="g-cell ${paid ? 'paid' : ''}" title="${paid ? h.name + ' ' + m + '月: ' + fmtForeign(monthAmt, h.currency) + ' (1株' + fmtForeign(perShare, h.currency) + ')' : ''}">${label}</div>`;
       }
+      html += `<div class="g-total-cell">${rowTotal > 0 ? fmtForeign(rowTotal, h.currency) : '—'}</div>`;
     }
+    // 合計行 (円換算)
+    const grandJPY = monthTotalsJPY.reduce((a, b) => a + b, 0);
+    html += `<div class="g-name g-sum-row"><span>合計 (円換算)</span></div>`;
+    for (let m = 1; m <= 12; m++) {
+      const v = monthTotalsJPY[m];
+      html += `<div class="g-total-cell g-sum-row">${v > 0 ? fmt(v).replace(/^¥/, '') : '—'}</div>`;
+    }
+    html += `<div class="g-total-cell g-sum-row g-grand">${fmt(grandJPY)}</div>`;
     html += '</div>';
+    if (missingRate) html += '<div style="font-size:11px;color:var(--expense);margin-top:6px;">⚠ 外貨レート未設定の銘柄は円換算合計に含まれていません (ストックタブで為替を設定してください)。</div>';
     el.innerHTML = html;
   }
 
