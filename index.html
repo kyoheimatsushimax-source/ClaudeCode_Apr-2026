@@ -3562,24 +3562,42 @@
   }
 
   // Try multiple endpoints/proxies to defeat CORS; returns parsed Yahoo chart JSON or null
+  const FETCH_TIMEOUT_MS = 6000;
+  async function fetchWithTimeout(url) {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
+    try { return await fetch(url, { signal: ctrl.signal }); }
+    finally { clearTimeout(t); }
+  }
+  // 成功した経路(route)を記憶し、以降の銘柄はその経路を最優先で使う
+  let pfGoodRoute = -1;
+  const PF_ROUTES = [
+    (y) => y,                                                           // direct
+    (y) => 'https://corsproxy.io/?url=' + encodeURIComponent(y),
+    (y) => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(y),
+    (y) => 'https://api.codetabs.com/v1/proxy/?quest=' + encodeURIComponent(y),
+  ];
   async function fetchChartJSON(ticker) {
     const path = `/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1d&range=1y&events=div`;
     const yurls = [
       'https://query1.finance.yahoo.com' + path,
       'https://query2.finance.yahoo.com' + path,
     ];
-    const builders = [];
-    for (const y of yurls) builders.push(() => y);                                   // direct
-    for (const y of yurls) builders.push(() => 'https://corsproxy.io/?url=' + encodeURIComponent(y));
-    for (const y of yurls) builders.push(() => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(y));
-    for (const y of yurls) builders.push(() => 'https://api.codetabs.com/v1/proxy/?quest=' + encodeURIComponent(y));
-    for (const b of builders) {
-      try {
-        const res = await fetch(b());
-        if (!res.ok) continue;
-        const json = await res.json();
-        if (json && json.chart && json.chart.result && json.chart.result[0]) return json;
-      } catch {}
+    const order = [];
+    if (pfGoodRoute >= 0) order.push(pfGoodRoute);
+    for (let i = 0; i < PF_ROUTES.length; i++) if (i !== pfGoodRoute) order.push(i);
+    for (const ri of order) {
+      for (const y of yurls) {
+        try {
+          const res = await fetchWithTimeout(PF_ROUTES[ri](y));
+          if (!res.ok) continue;
+          const json = await res.json();
+          if (json && json.chart && json.chart.result && json.chart.result[0]) {
+            pfGoodRoute = ri;
+            return json;
+          }
+        } catch {}
+      }
     }
     return null;
   }
@@ -3624,15 +3642,20 @@
     if (withTicker.length === 0) { if (!auto) alert('ティッカーを設定した銘柄がありません'); return; }
     pfRefreshing = true;
     btn.disabled = true;
-    let ok = 0, fail = 0, divCount = 0;
+    let ok = 0, fail = 0, divCount = 0, done = 0;
     const failed = [];
     const today = new Date().toISOString().slice(0, 10);
-    for (const h of withTicker) {
-      status.textContent = `取得中… ${h.ticker}`;
+    const total = withTicker.length;
+    status.textContent = `取得中… 0/${total}`;
+
+    // 1銘柄目で成功経路を確定させ、残りは並列 (同時4件) で高速取得
+    async function fetchOne(h) {
       const json = await fetchChartJSON(h.ticker);
-      if (!json) { fail++; failed.push(h.ticker); continue; }
+      done++;
+      status.textContent = `取得中… ${done}/${total}`;
+      if (!json) { fail++; failed.push(h.ticker); return; }
       const p = parsePrice(json);
-      if (p == null) { fail++; failed.push(h.ticker); continue; }
+      if (p == null) { fail++; failed.push(h.ticker); return; }
       h.price = Math.round(p * 100) / 100;
       h.priceAt = today;
       const cur = parseCurrency(json);
@@ -3641,6 +3664,12 @@
       if (sched && !h.divManual) { h.dividendSchedule = sched; h.divAuto = true; divCount++; }
       ok++;
     }
+    const queue = withTicker.slice();
+    await fetchOne(queue.shift()); // 経路探索 (成功経路をpfGoodRouteに記憶)
+    const workers = Array.from({ length: Math.min(4, queue.length) }, async () => {
+      while (queue.length) await fetchOne(queue.shift());
+    });
+    await Promise.all(workers);
     savePortfolio();
     renderPortfolio();
     btn.disabled = false;
