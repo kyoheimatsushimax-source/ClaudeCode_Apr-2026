@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>ふたごのリバーシ 〜ミミとクゥ〜</title>
+<title>ふたごのリバーシ 〜ミミとなかまたち〜</title>
 <meta name="theme-color" content="#fdf3e3">
 <link rel="manifest" href="manifest.webmanifest">
 <!-- iPhone: ホーム画面に追加したとき全画面のアプリとして動かす -->
@@ -20,10 +20,6 @@
     --board-frame-dark: #96693f;
     --cell: #a8d977;
     --cell-dark: #93c95f;
-    --pink: #ff8fab;
-    --pink-dark: #e56d8d;
-    --blue: #7ec8f2;
-    --blue-dark: #58a8d8;
     --text: #6b4a2e;
     --accent: #ffd166;
   }
@@ -43,60 +39,112 @@
     align-items: center;
     min-height: 100%;
     padding: 12px;
-    padding-top: calc(12px + env(safe-area-inset-top));
+    padding-top: calc(8px + env(safe-area-inset-top));
     padding-bottom: calc(12px + env(safe-area-inset-bottom));
     user-select: none;
   }
   h1 {
-    font-size: clamp(20px, 5vw, 32px);
-    margin: 4px 0 2px;
+    font-size: clamp(18px, 4.5vw, 28px);
+    margin: 2px 0 0;
     color: #d96a8b;
     text-shadow: 2px 2px 0 #fff;
     letter-spacing: 2px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
   }
-  .subtitle { font-size: clamp(11px, 2.5vw, 14px); margin-bottom: 8px; color: #a07850; }
+  .level-badge {
+    font-size: clamp(11px, 2.6vw, 14px);
+    background: linear-gradient(180deg, #ffd166, #f2b83a);
+    color: #7a5410;
+    border-radius: 999px;
+    padding: 3px 10px;
+    text-shadow: none;
+    letter-spacing: 0;
+    box-shadow: 0 2px 0 #c99326;
+    white-space: nowrap;
+  }
+  .subtitle { font-size: clamp(10px, 2.3vw, 13px); margin: 0 0 6px; color: #a07850; }
 
   /* ---- スコアボード ---- */
   .scoreboard {
     display: flex;
     align-items: center;
-    gap: 10px;
-    margin-bottom: 10px;
+    gap: 8px;
+    margin-bottom: 6px;
     width: min(92vw, 460px);
     justify-content: space-between;
   }
   .player-card {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
     background: #fff;
     border-radius: 16px;
-    padding: 6px 12px;
+    padding: 5px 10px;
     box-shadow: 0 3px 0 rgba(0,0,0,.08);
     border: 3px solid transparent;
     transition: transform .25s, border-color .25s;
-    min-width: 130px;
+    min-width: 120px;
   }
   .player-card.active {
     border-color: var(--accent);
-    transform: scale(1.08);
+    transform: scale(1.06);
     box-shadow: 0 4px 0 rgba(0,0,0,.12);
   }
-  .player-card .face { width: 42px; height: 42px; flex: none; }
+  .player-card .face { width: 38px; height: 38px; flex: none; }
   .player-card .info { display: flex; flex-direction: column; }
-  .player-card .name { font-size: 13px; font-weight: bold; }
-  .player-card .count { font-size: 22px; font-weight: bold; line-height: 1; }
+  .player-card .name { font-size: 11px; font-weight: bold; white-space: nowrap; }
+  .player-card .count { font-size: 20px; font-weight: bold; line-height: 1; }
   #turnBanner {
-    font-size: clamp(13px, 3.2vw, 16px);
+    font-size: clamp(11px, 2.8vw, 14px);
     font-weight: bold;
     background: #fff;
     border-radius: 999px;
-    padding: 6px 14px;
+    padding: 6px 10px;
     box-shadow: 0 3px 0 rgba(0,0,0,.08);
     text-align: center;
     flex: 1;
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
+
+  /* ---- ホー先生のコメント ---- */
+  .teacher {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    width: min(92vw, 460px);
+    margin-bottom: 8px;
+    min-height: 58px;
+  }
+  .teacher .face { width: 46px; height: 46px; flex: none; margin-top: 2px; }
+  .t-bubble {
+    position: relative;
+    flex: 1;
+    background: #fff;
+    border: 3px solid #e8c78f;
+    border-radius: 14px;
+    padding: 7px 10px;
+    font-size: clamp(11px, 2.9vw, 13px);
+    line-height: 1.5;
+    box-shadow: 0 3px 0 rgba(0,0,0,.07);
+    min-height: 52px;
+    display: flex;
+    align-items: center;
+  }
+  .t-bubble::before {
+    content: "";
+    position: absolute;
+    left: -12px;
+    top: 18px;
+    border: 6px solid transparent;
+    border-right-color: #e8c78f;
+  }
+  .t-bubble .stars { color: #f2a516; letter-spacing: 1px; margin-right: 4px; }
+  .t-bubble.pop { animation: bpop .3s cubic-bezier(.3,1.5,.5,1); }
+  @keyframes bpop { 0% { scale: .92; } 100% { scale: 1; } }
 
   /* ---- 盤面 ---- */
   .board-wrap {
@@ -109,8 +157,8 @@
     display: grid;
     grid-template-columns: repeat(8, 1fr);
     gap: 3px;
-    width: min(88vw, 440px);
-    height: min(88vw, 440px);
+    width: min(88vw, 430px);
+    height: min(88vw, 430px);
     background: #7ea84e;
     border-radius: 10px;
     padding: 3px;
@@ -147,9 +195,7 @@
   .disc.flip-b { transform: rotateY(0deg); }
   .disc.flip-w { transform: rotateY(180deg); }
   .disc.pop { animation: pop .35s cubic-bezier(.3, 1.6, .5, 1); }
-  @keyframes pop {
-    0% { scale: 0; } 70% { scale: 1.15; } 100% { scale: 1; }
-  }
+  @keyframes pop { 0% { scale: 0; } 70% { scale: 1.15; } 100% { scale: 1; } }
   .disc svg {
     position: absolute;
     inset: 0;
@@ -163,20 +209,20 @@
   /* ---- ボタン類 ---- */
   .controls {
     display: flex;
-    gap: 10px;
-    margin-top: 12px;
+    gap: 8px;
+    margin-top: 10px;
     flex-wrap: wrap;
     justify-content: center;
   }
   button {
     font-family: inherit;
-    font-size: 14px;
+    font-size: 13px;
     font-weight: bold;
     color: #fff;
     background: linear-gradient(180deg, #ffb74d, #f59b23);
     border: none;
     border-radius: 999px;
-    padding: 10px 20px;
+    padding: 9px 16px;
     cursor: pointer;
     box-shadow: 0 4px 0 #cf7d0e;
     transition: transform .1s, box-shadow .1s;
@@ -184,8 +230,11 @@
   button:active { transform: translateY(3px); box-shadow: 0 1px 0 #cf7d0e; }
   button.secondary { background: linear-gradient(180deg, #9ad0f0, #63aede); box-shadow: 0 4px 0 #4788b6; }
   button.secondary:active { box-shadow: 0 1px 0 #4788b6; }
+  button.purple { background: linear-gradient(180deg, #c9a7f5, #a47ae0); box-shadow: 0 4px 0 #7d55b8; }
+  button.purple:active { box-shadow: 0 1px 0 #7d55b8; }
+  button:disabled { filter: grayscale(.8); opacity: .6; }
 
-  /* ---- オーバーレイ（メニュー・結果） ---- */
+  /* ---- オーバーレイ ---- */
   .overlay {
     position: fixed;
     inset: 0;
@@ -194,47 +243,107 @@
     align-items: center;
     justify-content: center;
     z-index: 10;
-    padding: 16px;
+    padding: 14px;
+    overflow-y: auto;
   }
   .overlay.hidden { display: none; }
   .panel {
     background: #fffaf0;
     border-radius: 24px;
-    padding: 24px 28px;
+    padding: 18px 20px;
     text-align: center;
     box-shadow: 0 10px 0 rgba(0,0,0,.2);
-    max-width: 360px;
+    max-width: 380px;
     width: 100%;
     border: 4px solid var(--accent);
     animation: bounceIn .4s cubic-bezier(.3, 1.5, .5, 1);
+    max-height: calc(100vh - 40px);
+    overflow-y: auto;
   }
   @keyframes bounceIn { 0% { scale: .6; opacity: 0; } 100% { scale: 1; opacity: 1; } }
-  .panel h2 { color: #d96a8b; margin-bottom: 12px; font-size: 22px; }
-  .panel p { margin-bottom: 14px; font-size: 14px; line-height: 1.6; }
-  .choice-group { display: flex; flex-direction: column; gap: 10px; margin-bottom: 8px; }
+  .panel h2 { color: #d96a8b; margin-bottom: 8px; font-size: 20px; }
+  .panel h3 { color: #a07850; margin: 10px 0 6px; font-size: 13px; }
+  .panel p { margin-bottom: 10px; font-size: 13px; line-height: 1.6; }
+  .choice-group { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
   .choice-group button { width: 100%; }
-  .result-faces { display: flex; justify-content: center; gap: 12px; margin: 10px 0; }
-  .result-faces .face { width: 72px; height: 72px; }
-  .big-num { font-size: 30px; font-weight: bold; }
-  .vs { font-size: 18px; align-self: center; }
+  .result-faces { display: flex; justify-content: center; gap: 12px; margin: 8px 0; align-items: center; }
+  .result-faces .face { width: 64px; height: 64px; }
+  .big-num { font-size: 28px; font-weight: bold; }
+  .vs { font-size: 16px; }
 
-  footer { margin-top: 14px; font-size: 11px; color: #b09372; text-align: center; }
+  /* ---- キャラクターえらび ---- */
+  .char-row { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
+  .char-opt {
+    width: 56px;
+    padding: 5px 2px 3px;
+    border-radius: 14px;
+    border: 3px solid transparent;
+    background: #fff;
+    cursor: pointer;
+    box-shadow: 0 2px 0 rgba(0,0,0,.08);
+  }
+  .char-opt .face { width: 40px; height: 40px; margin: 0 auto; }
+  .char-opt .cname { font-size: 9px; font-weight: bold; display: block; margin-top: 2px; }
+  .char-opt.sel { border-color: var(--accent); background: #fff6dd; transform: scale(1.06); }
+
+  /* ---- ダンジョン ---- */
+  .floors { display: flex; flex-direction: column; gap: 6px; margin: 8px 0; }
+  .floor-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #fff;
+    border-radius: 12px;
+    padding: 5px 10px;
+    border: 3px solid transparent;
+    box-shadow: 0 2px 0 rgba(0,0,0,.07);
+    cursor: pointer;
+    text-align: left;
+  }
+  .floor-row .face { width: 34px; height: 34px; flex: none; }
+  .floor-row .fl-info { flex: 1; }
+  .floor-row .fl-name { font-size: 12px; font-weight: bold; }
+  .floor-row .fl-sub { font-size: 10px; color: #a07850; }
+  .floor-row .fl-state { font-size: 14px; }
+  .floor-row.cleared { background: #f0fbe4; }
+  .floor-row.current { border-color: var(--accent); background: #fff6dd; }
+  .floor-row.locked { opacity: .45; cursor: default; filter: grayscale(.7); }
+
+  /* ---- XPバー ---- */
+  .xpwrap { margin: 8px 0 4px; }
+  .xpbar {
+    height: 14px;
+    border-radius: 999px;
+    background: #eee0c8;
+    overflow: hidden;
+    box-shadow: inset 0 1px 3px rgba(0,0,0,.15);
+  }
+  .xpbar > div {
+    height: 100%;
+    background: linear-gradient(90deg, #ffd166, #f2a516);
+    border-radius: 999px;
+    transition: width .8s cubic-bezier(.3, 1, .4, 1);
+  }
+  .xplabel { font-size: 11px; color: #a07850; margin-top: 3px; }
+  .levelup-msg { color: #d96a8b; font-weight: bold; font-size: 16px; animation: bpop .4s; }
+
+  footer { margin-top: 10px; font-size: 10px; color: #b09372; text-align: center; }
 </style>
 </head>
 <body>
 
-<h1>ふたごのリバーシ</h1>
-<div class="subtitle">〜 ねこのミミ と くまのクゥ 〜</div>
+<h1>ふたごのリバーシ <span class="level-badge" id="levelBadge">Lv.1</span></h1>
+<div class="subtitle">〜 ミミと なかまたち 〜</div>
 
 <div class="scoreboard">
   <div class="player-card" id="cardB">
     <div class="face" id="faceB"></div>
     <div class="info">
-      <span class="name">ミミ（あなた）</span>
+      <span class="name" id="nameB">ミミ（あなた）</span>
       <span class="count" id="countB">2</span>
     </div>
   </div>
-  <div id="turnBanner">ミミのばん!</div>
+  <div id="turnBanner">じゅんびちゅう…</div>
   <div class="player-card" id="cardW">
     <div class="face" id="faceW"></div>
     <div class="info">
@@ -244,12 +353,17 @@
   </div>
 </div>
 
+<div class="teacher">
+  <div class="face" id="teacherFace"></div>
+  <div class="t-bubble" id="teacherBubble">ホーせんせいだよ。きみの一手を みてあげるからね!</div>
+</div>
+
 <div class="board-wrap"><div class="board" id="board"></div></div>
 
 <div class="controls">
   <button class="secondary" id="btnHint">ヒント</button>
   <button class="secondary" id="btnUndo">まったなし!</button>
-  <button id="btnMenu">さいしょから</button>
+  <button id="btnMenu">メニュー</button>
 </div>
 
 <footer>おけるマスをタップしてね。あいてのコマをはさむと、じぶんのいろにかわるよ!</footer>
@@ -258,16 +372,27 @@
 <div class="overlay" id="menuOverlay">
   <div class="panel">
     <h2>ふたごのリバーシ</h2>
-    <div class="result-faces">
-      <div class="face" id="menuFaceB"></div>
-      <div class="face" id="menuFaceW"></div>
-    </div>
-    <p>ねこのミミちゃんと、くまのクゥくんの<br>たのしいリバーシであそぼう!</p>
+    <h3>じぶんの キャラクターを えらんでね</h3>
+    <div class="char-row" id="charRow"></div>
+    <h3>あそびかたを えらんでね</h3>
     <div class="choice-group">
+      <button class="purple" id="btnDungeon">🏰 リバーシダンジョンに ちょうせん!</button>
       <button data-mode="easy">🌱 やさしい CPU とあそぶ</button>
       <button data-mode="normal">🌼 ふつうの CPU とあそぶ</button>
       <button data-mode="hard">🔥 つよい CPU とあそぶ</button>
       <button class="secondary" data-mode="pvp">👫 ふたりであそぶ</button>
+    </div>
+  </div>
+</div>
+
+<!-- ダンジョンマップ -->
+<div class="overlay hidden" id="dungeonOverlay">
+  <div class="panel">
+    <h2>🏰 リバーシダンジョン</h2>
+    <p id="dungeonMsg">なかまたちに かって、どんどん ふかくへ すすもう!</p>
+    <div class="floors" id="floorList"></div>
+    <div class="choice-group">
+      <button class="secondary" id="btnDungeonBack">メニューにもどる</button>
     </div>
   </div>
 </div>
@@ -282,67 +407,99 @@
       <div class="face" id="resultFaceW"></div>
     </div>
     <p><span class="big-num" id="resultB"></span> 対 <span class="big-num" id="resultW"></span></p>
-    <div class="choice-group">
-      <button id="btnRetry">もういちど!</button>
-      <button class="secondary" id="btnBackMenu">メニューにもどる</button>
+    <div id="xpSection">
+      <p id="xpGained" style="margin-bottom:4px;"></p>
+      <div class="xpwrap">
+        <div class="xpbar"><div id="xpFill" style="width:0%"></div></div>
+        <div class="xplabel" id="xpLabel"></div>
+      </div>
+      <p class="levelup-msg" id="levelupMsg" style="display:none;"></p>
     </div>
+    <div class="choice-group" id="resultButtons"></div>
   </div>
 </div>
 
 <script>
 "use strict";
 
-/* ================= キャラクター SVG（オリジナル） ================= */
-// B = ねこのミミ（ピンク） / W = くまのクゥ（みずいろ）
-function catFace(size) {
-  return `<svg viewBox="0 0 100 100" width="${size}" height="${size}">
-    <polygon points="18,38 12,8 40,22" fill="#ff8fab" stroke="#e56d8d" stroke-width="4" stroke-linejoin="round"/>
-    <polygon points="82,38 88,8 60,22" fill="#ff8fab" stroke="#e56d8d" stroke-width="4" stroke-linejoin="round"/>
-    <circle cx="50" cy="55" r="38" fill="#ff8fab" stroke="#e56d8d" stroke-width="4"/>
-    <circle cx="36" cy="50" r="4.5" fill="#5b3a29"/>
-    <circle cx="64" cy="50" r="4.5" fill="#5b3a29"/>
-    <circle cx="27" cy="62" r="6" fill="#ffc2d1" opacity=".8"/>
-    <circle cx="73" cy="62" r="6" fill="#ffc2d1" opacity=".8"/>
-    <path d="M46 60 Q50 64 54 60" fill="none" stroke="#5b3a29" stroke-width="3" stroke-linecap="round"/>
-    <path d="M50 63 Q44 72 38 68 M50 63 Q56 72 62 68" fill="none" stroke="#5b3a29" stroke-width="3" stroke-linecap="round"/>
-  </svg>`;
+/* ================= キャラクター（すべてオリジナル） ================= */
+const CHARS = {
+  mimi: { name: "ミミ",   species: "ねこ",     body: "#ff8fab", edge: "#e56d8d", eye: "#5b3a29" },
+  kuu:  { name: "クゥ",   species: "くま",     body: "#7ec8f2", edge: "#58a8d8", eye: "#3d5166" },
+  pyon: { name: "ピョン", species: "うさぎ",   body: "#c9a7f5", edge: "#a47ae0", eye: "#4a3a63" },
+  kero: { name: "ケロ",   species: "かえる",   body: "#8ed36f", edge: "#65b249", eye: "#2e5c22" },
+  pen:  { name: "ペン",   species: "ぺんぎん", body: "#9db8d9", edge: "#6f8fbb", eye: "#2f3f57" },
+  kon:  { name: "コン",   species: "きつね",   body: "#ffb26b", edge: "#e88f3f", eye: "#5c3a1e" },
+  hoo:  { name: "ホーせんせい", species: "ふくろう", body: "#c9a06e", edge: "#a67c4b", eye: "#3f2f1e" },
+};
+const PLAYABLE = ["mimi", "kuu", "pyon", "kero", "pen", "kon"];
+
+function charSvgInner(key) {
+  const c = CHARS[key];
+  const { body, edge, eye } = c;
+  let ears = "", extra = "";
+  switch (key) {
+    case "mimi": // ねこ: とんがり耳 + にっこり口
+      ears = `<polygon points="26,26 22,8 40,20" fill="${body}" stroke="${edge}" stroke-width="3" stroke-linejoin="round"/>
+              <polygon points="74,26 78,8 60,20" fill="${body}" stroke="${edge}" stroke-width="3" stroke-linejoin="round"/>`;
+      extra = `<path d="M44 60 Q50 65 56 60" fill="none" stroke="${eye}" stroke-width="3" stroke-linecap="round"/>`;
+      break;
+    case "kuu": // くま: まる耳 + マズル
+      ears = `<circle cx="26" cy="18" r="9" fill="${body}" stroke="${edge}" stroke-width="3"/>
+              <circle cx="74" cy="18" r="9" fill="${body}" stroke="${edge}" stroke-width="3"/>`;
+      extra = `<ellipse cx="50" cy="62" rx="11" ry="8" fill="#fff" opacity=".85"/>
+               <ellipse cx="50" cy="59" rx="4" ry="3" fill="${eye}"/>`;
+      break;
+    case "pyon": // うさぎ: 長い耳 + 前歯
+      ears = `<ellipse cx="36" cy="12" rx="8" ry="16" fill="${body}" stroke="${edge}" stroke-width="3"/>
+              <ellipse cx="64" cy="12" rx="8" ry="16" fill="${body}" stroke="${edge}" stroke-width="3"/>
+              <ellipse cx="36" cy="13" rx="3.5" ry="10" fill="#fff" opacity=".55"/>
+              <ellipse cx="64" cy="13" rx="3.5" ry="10" fill="#fff" opacity=".55"/>`;
+      extra = `<path d="M45 59 Q50 63 55 59" fill="none" stroke="${eye}" stroke-width="3" stroke-linecap="round"/>
+               <rect x="46.5" y="61" width="7" height="6" rx="2" fill="#fff" stroke="${edge}" stroke-width="1.5"/>`;
+      break;
+    case "kero": // かえる: 上のでめ + にっこり
+      ears = `<circle cx="32" cy="16" r="11" fill="${body}" stroke="${edge}" stroke-width="3"/>
+              <circle cx="68" cy="16" r="11" fill="${body}" stroke="${edge}" stroke-width="3"/>
+              <circle cx="32" cy="16" r="4" fill="${eye}"/>
+              <circle cx="68" cy="16" r="4" fill="${eye}"/>`;
+      extra = `<path d="M40 60 Q50 68 60 60" fill="none" stroke="${eye}" stroke-width="3" stroke-linecap="round"/>`;
+      break;
+    case "pen": // ぺんぎん: 白いおなか顔 + くちばし
+      extra = `<ellipse cx="50" cy="60" rx="22" ry="18" fill="#fff" opacity=".9"/>
+               <polygon points="44,52 56,52 50,61" fill="#f2a516" stroke="#d18a0c" stroke-width="2" stroke-linejoin="round"/>`;
+      break;
+    case "kon": // きつね: とがり耳 + 白いマズル
+      ears = `<polygon points="24,30 16,4 42,18" fill="${body}" stroke="${edge}" stroke-width="3" stroke-linejoin="round"/>
+              <polygon points="76,30 84,4 58,18" fill="${body}" stroke="${edge}" stroke-width="3" stroke-linejoin="round"/>
+              <polygon points="25,26 21,12 34,19" fill="#fff" opacity=".6"/>
+              <polygon points="75,26 79,12 66,19" fill="#fff" opacity=".6"/>`;
+      extra = `<ellipse cx="50" cy="63" rx="13" ry="9" fill="#fff" opacity=".9"/>
+               <ellipse cx="50" cy="58" rx="4" ry="3.2" fill="${eye}"/>`;
+      break;
+    case "hoo": // ふくろう: 羽かざり + めがねっぽい目 + くちばし
+      ears = `<polygon points="28,22 24,6 40,16" fill="${body}" stroke="${edge}" stroke-width="3" stroke-linejoin="round"/>
+              <polygon points="72,22 76,6 60,16" fill="${body}" stroke="${edge}" stroke-width="3" stroke-linejoin="round"/>`;
+      extra = `<circle cx="38" cy="48" r="11" fill="#fff" stroke="${edge}" stroke-width="2.5"/>
+               <circle cx="62" cy="48" r="11" fill="#fff" stroke="${edge}" stroke-width="2.5"/>
+               <polygon points="45,58 55,58 50,67" fill="#f2a516" stroke="#d18a0c" stroke-width="2" stroke-linejoin="round"/>`;
+      break;
+  }
+  const eyes = key === "kero"
+    ? "" // かえるは目が上にあるので顔の目は省略
+    : `<circle cx="38" cy="48" r="4" fill="${eye}"/><circle cx="62" cy="48" r="4" fill="${eye}"/>`;
+  return `${ears}
+    <circle cx="50" cy="52" r="40" fill="${body}" stroke="${edge}" stroke-width="5"/>
+    ${extra}
+    ${eyes}
+    <circle cx="29" cy="58" r="5" fill="#fff" opacity=".4"/>
+    <circle cx="71" cy="58" r="5" fill="#fff" opacity=".4"/>`;
 }
-function bearFace(size) {
-  return `<svg viewBox="0 0 100 100" width="${size}" height="${size}">
-    <circle cx="22" cy="24" r="13" fill="#7ec8f2" stroke="#58a8d8" stroke-width="4"/>
-    <circle cx="78" cy="24" r="13" fill="#7ec8f2" stroke="#58a8d8" stroke-width="4"/>
-    <circle cx="22" cy="24" r="5" fill="#b8e3fa"/>
-    <circle cx="78" cy="24" r="5" fill="#b8e3fa"/>
-    <circle cx="50" cy="56" r="38" fill="#7ec8f2" stroke="#58a8d8" stroke-width="4"/>
-    <circle cx="36" cy="50" r="4.5" fill="#3d5166"/>
-    <circle cx="64" cy="50" r="4.5" fill="#3d5166"/>
-    <ellipse cx="50" cy="66" rx="14" ry="11" fill="#dff2fc"/>
-    <ellipse cx="50" cy="61" rx="5" ry="4" fill="#3d5166"/>
-    <path d="M50 65 Q50 71 44 72 M50 65 Q50 71 56 72" fill="none" stroke="#3d5166" stroke-width="3" stroke-linecap="round"/>
-  </svg>`;
+function faceSvg(key) {
+  return `<svg viewBox="0 0 100 100" width="100%" height="100%">${charSvgInner(key)}</svg>`;
 }
-// コマ用（円形ベース + 顔）
-function discSvg(color) {
-  const isB = color === "B";
-  const body = isB ? "#ff8fab" : "#7ec8f2";
-  const edge = isB ? "#e56d8d" : "#58a8d8";
-  const eye  = isB ? "#5b3a29" : "#3d5166";
-  const deco = isB
-    ? `<polygon points="26,26 22,10 38,20" fill="${body}" stroke="${edge}" stroke-width="3" stroke-linejoin="round"/>
-       <polygon points="74,26 78,10 62,20" fill="${body}" stroke="${edge}" stroke-width="3" stroke-linejoin="round"/>
-       <path d="M44 58 Q50 63 56 58" fill="none" stroke="${eye}" stroke-width="3" stroke-linecap="round"/>`
-    : `<circle cx="26" cy="18" r="9" fill="${body}" stroke="${edge}" stroke-width="3"/>
-       <circle cx="74" cy="18" r="9" fill="${body}" stroke="${edge}" stroke-width="3"/>
-       <ellipse cx="50" cy="60" rx="11" ry="8" fill="#fff" opacity=".85"/>
-       <ellipse cx="50" cy="57" rx="4" ry="3" fill="${eye}"/>`;
-  return `<svg viewBox="0 0 100 100" class="side-${isB ? "b" : "w"}">
-    <circle cx="50" cy="52" r="42" fill="${body}" stroke="${edge}" stroke-width="5"/>
-    ${deco}
-    <circle cx="38" cy="48" r="4" fill="${eye}"/>
-    <circle cx="62" cy="48" r="4" fill="${eye}"/>
-    <circle cx="30" cy="58" r="5" fill="#ffffff" opacity=".45"/>
-    <circle cx="70" cy="58" r="5" fill="#ffffff" opacity=".45"/>
-  </svg>`;
+function discSvg(key, side) {
+  return `<svg viewBox="0 0 100 100" class="side-${side}">${charSvgInner(key)}</svg>`;
 }
 
 /* ================= ゲームロジック ================= */
@@ -351,6 +508,10 @@ const DIRS = [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]];
 const EMPTY = ".", B = "B", W = "W";
 
 let board, turn, mode, history, busy;
+let playerChar = "mimi", oppChar = "kuu";
+let dungeonFloor = 0;     // いま挑戦中の階（0 = ダンジョン外）
+let gameXP = 0;           // この対局でためたXP
+let aiConfig = { type: "random" };
 
 function newBoard() {
   const b = Array.from({ length: SIZE }, () => Array(SIZE).fill(EMPTY));
@@ -389,8 +550,9 @@ function countDiscs(bd) {
   for (const row of bd) for (const v of row) { if (v === B) nb++; else if (v === W) nw++; }
   return [nb, nw];
 }
+function cloneBoard(bd) { return bd.map(row => row.slice()); }
 
-/* ================= CPU ================= */
+/* ================= 評価・探索 ================= */
 const WEIGHTS = [
   [120,-25, 12,  6,  6, 12,-25,120],
   [-25,-45, -4, -4, -4, -4,-45,-25],
@@ -411,8 +573,6 @@ function evaluate(bd, p) {
   score += 4 * (validMoves(bd, p).length - validMoves(bd, opp(p)).length);
   return score;
 }
-function cloneBoard(bd) { return bd.map(row => row.slice()); }
-
 function minimax(bd, p, me, depth, alpha, beta) {
   const moves = validMoves(bd, p);
   if (depth === 0 || (!moves.length && !validMoves(bd, opp(p)).length)) {
@@ -442,15 +602,16 @@ function minimax(bd, p, me, depth, alpha, beta) {
   }
 }
 
-function cpuChoose() {
+/* ================= CPU（強さいろいろ） ================= */
+const CORNERS = [[0,0],[0,7],[7,0],[7,7]];
+const isCorner = (r, c) => (r === 0 || r === 7) && (c === 0 || c === 7);
+
+function aiChoose(config) {
   const moves = validMoves(board, W);
   if (!moves.length) return null;
-  if (mode === "easy") {
-    return moves[Math.floor(Math.random() * moves.length)];
-  }
-  if (mode === "normal") {
-    // もっとも多くひっくり返せる手を選ぶ（角があれば角優先）
-    const corner = moves.find(([r, c]) => (r === 0 || r === 7) && (c === 0 || c === 7));
+  const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+  const greedy = () => {
+    const corner = moves.find(([r, c]) => isCorner(r, c));
     if (corner) return corner;
     let best = moves[0], bestN = -1;
     for (const [r, c] of moves) {
@@ -458,16 +619,139 @@ function cpuChoose() {
       if (n > bestN) { bestN = n; best = [r, c]; }
     }
     return best;
+  };
+  switch (config.type) {
+    case "random": return pick(moves);
+    case "random2": return Math.random() < 0.5 ? pick(moves) : greedy();
+    case "greedy": return greedy();
+    case "greedy+": {
+      const corner = moves.find(([r, c]) => isCorner(r, c));
+      if (corner) return corner;
+      // 角のまわりの危険マスをさけて、いちばん位置の良い手
+      const safe = moves.filter(([r, c]) => WEIGHTS[r][c] > -20);
+      const cand = safe.length ? safe : moves;
+      let best = cand[0], bestS = -Infinity;
+      for (const [r, c] of cand) {
+        const s = WEIGHTS[r][c] + flipsFor(board, r, c, W).length;
+        if (s > bestS) { bestS = s; best = [r, c]; }
+      }
+      return best;
+    }
+    default: { // minimax
+      const depth = config.depth || 2;
+      let best = moves[0], bestScore = -Infinity;
+      for (const [r, c] of moves) {
+        const nb = cloneBoard(board);
+        applyMove(nb, r, c, W);
+        const s = minimax(nb, B, W, depth, -Infinity, Infinity);
+        if (s > bestScore) { bestScore = s; best = [r, c]; }
+      }
+      return best;
+    }
   }
-  // hard: 位置評価つき αβ探索
-  let best = moves[0], bestScore = -Infinity;
-  for (const [r, c] of moves) {
-    const nb = cloneBoard(board);
-    applyMove(nb, r, c, W);
-    const s = minimax(nb, B, W, 3, -Infinity, Infinity);
-    if (s > bestScore) { bestScore = s; best = [r, c]; }
+}
+const FREE_AI = { easy: { type: "random" }, normal: { type: "greedy" }, hard: { type: "minimax", depth: 3 } };
+
+/* ================= ダンジョン ================= */
+const FLOORS = [
+  { char: "pyon", ai: { type: "random" },              sub: "うさぎの ピョン" },
+  { char: "kero", ai: { type: "random2" },             sub: "かえるの ケロ" },
+  { char: "kuu",  ai: { type: "greedy" },              sub: "くまの クゥ" },
+  { char: "kon",  ai: { type: "greedy+" },             sub: "きつねの コン" },
+  { char: "pen",  ai: { type: "minimax", depth: 1 },   sub: "ぺんぎんの ペン" },
+  { char: "pyon", ai: { type: "minimax", depth: 2 },   sub: "きたえた ピョン" },
+  { char: "kuu",  ai: { type: "minimax", depth: 2 },   sub: "ほんきの クゥ" },
+  { char: "kon",  ai: { type: "minimax", depth: 3 },   sub: "ずるがしこい コン" },
+  { char: "pen",  ai: { type: "minimax", depth: 3 },   sub: "こおりの ペン" },
+  { char: "hoo",  ai: { type: "minimax", depth: 4 },   sub: "さいごのしれん ホーせんせい" },
+];
+
+/* ================= セーブデータ（XP・レベル・ダンジョン） ================= */
+const XP_PER_LEVEL = 50;
+function loadNum(key) { try { return parseInt(localStorage.getItem(key)) || 0; } catch (e) { return 0; } }
+function saveNum(key, v) { try { localStorage.setItem(key, String(v)); } catch (e) {} }
+let totalXP = loadNum("fr_xp");
+let clearedFloor = loadNum("fr_dungeon"); // クリアずみの最深階 (0-10)
+try { const c = localStorage.getItem("fr_char"); if (c && PLAYABLE.includes(c)) playerChar = c; } catch (e) {}
+
+const levelOf = xp => 1 + Math.floor(xp / XP_PER_LEVEL);
+function updateLevelBadge() {
+  document.getElementById("levelBadge").textContent = "Lv." + levelOf(totalXP);
+}
+
+/* ================= ホー先生のコメント ================= */
+const isXSquare = (r, c) => (r === 1 || r === 6) && (c === 1 || c === 6);
+const isCSquare = (r, c) =>
+  ((r === 0 || r === 7) && (c === 1 || c === 6)) || ((r === 1 || r === 6) && (c === 0 || c === 7));
+function nearestCorner(r, c) {
+  return [r <= 3 ? 0 : 7, c <= 3 ? 0 : 7];
+}
+
+const GRADES = {
+  S: { stars: "⭐⭐⭐", label: "だいせいかい!", xp: 5 },
+  A: { stars: "⭐⭐",   label: "いい手だね!",   xp: 3 },
+  B: { stars: "⭐",     label: "わるくないよ",   xp: 1 },
+  C: { stars: "",       label: "うーん、おしい!", xp: 0 },
+};
+
+function teacherReview(prevBoard, r, c, mover, flips) {
+  const moves = validMoves(prevBoard, mover);
+  if (moves.length === 1) {
+    return { grade: "A", advice: "そこしか おけなかったね。しっかり おけて えらい!" };
   }
-  return best;
+  // ぜんぶの手を先読みして採点
+  const scored = moves.map(([mr, mc]) => {
+    const nb = cloneBoard(prevBoard);
+    applyMove(nb, mr, mc, mover);
+    return { r: mr, c: mc, score: minimax(nb, opp(mover), mover, 2, -Infinity, Infinity) };
+  }).sort((a, b) => b.score - a.score);
+  const bestScore = scored[0].score;
+  const mine = scored.find(m => m.r === r && m.c === c);
+  const diff = bestScore - mine.score;
+  let grade;
+  if (diff <= 0) grade = "S";
+  else if (diff <= 15) grade = "A";
+  else if (diff <= 40) grade = "B";
+  else grade = "C";
+
+  // アドバイスを決める（だいじな順にチェック）
+  const [nb, nw] = countDiscs(prevBoard);
+  const totalBefore = nb + nw;
+  const after = cloneBoard(prevBoard);
+  applyMove(after, r, c, mover);
+  const oppMobility = validMoves(after, opp(mover)).length;
+  const bestIsCorner = isCorner(scored[0].r, scored[0].c);
+  let advice;
+  if (isCorner(r, c)) {
+    advice = "かど(すみっこ)ゲット! かどは ぜったいに とられない さいきょうのマスだよ!";
+  } else if (bestIsCorner) {
+    advice = "じつは かどが あいてたよ。かどは とられない さいきょうのマスだから、つぎは ねらってみよう!";
+  } else if (isXSquare(r, c) && prevBoard[nearestCorner(r, c)[0]][nearestCorner(r, c)[1]] === EMPTY) {
+    advice = "かどの ななめとなりは、あいてに かどを とられやすい キケンなマスなんだ。気をつけよう!";
+  } else if (isCSquare(r, c) && prevBoard[nearestCorner(r, c)[0]][nearestCorner(r, c)[1]] === EMPTY) {
+    advice = "かどの となりに おくと、あいてに かどを あげちゃうかも…。すこし ようじんしてね。";
+  } else if (totalBefore < 20 && flips.length >= 5) {
+    advice = "はじめのうちは、たくさん ひっくりかえしすぎない ほうが、あとで つよくなれるんだよ。";
+  } else if (oppMobility <= 3 && (grade === "S" || grade === "A")) {
+    advice = "あいての おけるばしょを へらせたね! あいてを こまらせる いい作戦だよ!";
+  } else {
+    const defaults = {
+      S: "いまの ばんめんで いちばんの 一手だよ! すごい!",
+      A: "とても いいところに おけたね!",
+      B: "もうすこし いい手も あったかも。「ヒント」ボタンも つかってみてね。",
+      C: "つぎは かどや はしっこを いしきして おいてみよう!",
+    };
+    advice = defaults[grade];
+  }
+  return { grade, advice };
+}
+
+function showTeacher(text, stars) {
+  const bubble = document.getElementById("teacherBubble");
+  bubble.innerHTML = (stars ? `<span><span class="stars">${stars}</span>${text}</span>` : `<span>${text}</span>`);
+  bubble.classList.remove("pop");
+  void bubble.offsetWidth; // アニメーションをやりなおすためのリフロー
+  bubble.classList.add("pop");
 }
 
 /* ================= 効果音（WebAudio・素材不要） ================= */
@@ -490,8 +774,9 @@ const sndFlip  = () => beep(660, .08, "sine", .08);
 const sndWin   = () => [523, 659, 784, 1047].forEach((f, i) => beep(f, .25, "triangle", .15, i * .15));
 const sndLose  = () => [400, 350, 300].forEach((f, i) => beep(f, .3, "sine", .12, i * .2));
 const sndPass  = () => beep(330, .2, "square", .08);
+const sndLevel = () => [659, 784, 988, 1319, 1568].forEach((f, i) => beep(f, .22, "triangle", .15, i * .12));
 
-/* ================= 描画 ================= */
+/* ================= 盤面の描画 ================= */
 const boardEl = document.getElementById("board");
 const cells = [];
 
@@ -508,6 +793,12 @@ function buildBoard() {
     }
   }
 }
+function clearDiscs() {
+  for (const cell of cells) {
+    const d = cell.querySelector(".disc");
+    if (d) d.remove();
+  }
+}
 
 function render(newDisc = null, flipped = []) {
   const flipSet = new Set(flipped.map(([r, c]) => r * SIZE + c));
@@ -522,14 +813,13 @@ function render(newDisc = null, flipped = []) {
       if (!disc) {
         disc = document.createElement("div");
         disc.className = "disc";
-        disc.innerHTML = discSvg(B) + discSvg(W);
+        disc.innerHTML = discSvg(playerChar, "b") + discSvg(oppChar, "w");
         cell.appendChild(disc);
         if (newDisc && newDisc[0] === r && newDisc[1] === c) disc.classList.add("pop");
       }
       const targetClass = v === B ? "flip-b" : "flip-w";
       if (!disc.classList.contains(targetClass)) {
-        if (flipSet.has(idx)) {
-          // 波のように順番にひっくり返す
+        if (flipSet.has(idx) && newDisc) {
           const delay = 60 * (Math.abs(r - newDisc[0]) + Math.abs(c - newDisc[1]));
           setTimeout(() => {
             disc.classList.remove("flip-b", "flip-w");
@@ -551,23 +841,47 @@ function render(newDisc = null, flipped = []) {
 }
 
 function setBanner(text) { document.getElementById("turnBanner").textContent = text; }
+const sideName = side => (side === B ? CHARS[playerChar].name : CHARS[oppChar].name);
 
 function showHints() {
   for (const [r, c] of validMoves(board, turn)) cells[r * SIZE + c].classList.add("hint");
 }
 
 /* ================= 進行 ================= */
-function startGame(m) {
-  mode = m;
+function startGame(m, opts = {}) {
+  mode = m; // "easy" | "normal" | "hard" | "pvp" | "dungeon"
+  if (m === "dungeon") {
+    dungeonFloor = opts.floor;
+    const fl = FLOORS[dungeonFloor - 1];
+    oppChar = fl.char === playerChar && fl.char !== "hoo"
+      ? PLAYABLE[(PLAYABLE.indexOf(fl.char) + 1) % PLAYABLE.length]
+      : fl.char;
+    aiConfig = fl.ai;
+  } else {
+    dungeonFloor = 0;
+    const others = PLAYABLE.filter(k => k !== playerChar);
+    oppChar = others[Math.floor(Math.random() * others.length)];
+    aiConfig = FREE_AI[m] || { type: "random" };
+  }
   board = newBoard();
   turn = B;
   history = [];
   busy = false;
-  document.getElementById("nameW").textContent = mode === "pvp" ? "クゥ（2P）" : "クゥ（CPU）";
+  gameXP = 0;
+  clearDiscs();
+  document.getElementById("faceB").innerHTML = faceSvg(playerChar);
+  document.getElementById("faceW").innerHTML = faceSvg(oppChar);
+  document.getElementById("nameB").textContent = CHARS[playerChar].name + (m === "pvp" ? "（1P）" : "（あなた）");
+  document.getElementById("nameW").textContent = CHARS[oppChar].name +
+    (m === "pvp" ? "（2P）" : m === "dungeon" ? `（${dungeonFloor}かい）` : "（CPU）");
   document.getElementById("menuOverlay").classList.add("hidden");
+  document.getElementById("dungeonOverlay").classList.add("hidden");
   document.getElementById("resultOverlay").classList.add("hidden");
   render();
-  setBanner("ミミのばん!");
+  setBanner(sideName(B) + "のばん!");
+  showTeacher(m === "dungeon"
+    ? `ダンジョン${dungeonFloor}かい! ${CHARS[oppChar].name}に かったら つぎへ すすめるぞ。がんばれ!`
+    : "きみの 一手を みてあげるからね。かど(すみっこ)を いしきして がんばろう!");
 }
 
 function onCellTap(r, c) {
@@ -577,9 +891,16 @@ function onCellTap(r, c) {
   if (!flips.length) return;
   history.push({ board: cloneBoard(board), turn });
   const mover = turn;
+  const prevBoard = cloneBoard(board);
   applyMove(board, r, c, mover);
   sndPlace();
   render([r, c], flips);
+  // ホー先生の採点（人間の手だけ）
+  const review = teacherReview(prevBoard, r, c, mover, flips);
+  const g = GRADES[review.grade];
+  const who = mode === "pvp" ? sideName(mover) + "、" : "";
+  showTeacher(`${who}${g.label} ${review.advice}`, g.stars);
+  if (mode !== "pvp") gameXP += g.xp;
   advanceTurn(mover, flips.length);
 }
 
@@ -593,7 +914,7 @@ function advanceTurn(mover, flipCount) {
     } else if (validMoves(board, mover).length) {
       turn = mover;
       sndPass();
-      setBanner((next === B ? "ミミ" : "クゥ") + "はおけないよ… パス!");
+      setBanner(sideName(next) + "は おけないよ… パス!");
       render();
       setTimeout(() => afterTurnSet(), 900);
       return;
@@ -607,7 +928,7 @@ function advanceTurn(mover, flipCount) {
 
 function afterTurnSet() {
   render();
-  setBanner(turn === B ? "ミミのばん!" : "クゥのばん!");
+  setBanner(sideName(turn) + "のばん!");
   if (mode !== "pvp" && turn === W) {
     busy = true;
     setTimeout(cpuPlay, 700);
@@ -617,7 +938,7 @@ function afterTurnSet() {
 }
 
 function cpuPlay() {
-  const move = cpuChoose();
+  const move = aiChoose(aiConfig);
   if (!move) { finishGame(); return; }
   const [r, c] = move;
   const flips = flipsFor(board, r, c, W);
@@ -627,31 +948,152 @@ function cpuPlay() {
   advanceTurn(W, flips.length);
 }
 
+/* ================= 結果とレベルアップ ================= */
 function finishGame() {
   busy = true;
   const [nb, nw] = countDiscs(board);
+  const playerWon = nb > nw;
   const title = document.getElementById("resultTitle");
   document.getElementById("resultB").textContent = nb;
   document.getElementById("resultW").textContent = nw;
-  if (nb > nw) {
-    title.textContent = mode === "pvp" ? "ミミのかち! 🎉" : "あなたのかち! 🎉";
-    sndWin();
-  } else if (nw > nb) {
-    title.textContent = mode === "pvp" ? "クゥのかち! 🎉" : "ざんねん… クゥのかち";
+  document.getElementById("resultFaceB").innerHTML = faceSvg(playerChar);
+  document.getElementById("resultFaceW").innerHTML = faceSvg(oppChar);
+
+  const pName = CHARS[playerChar].name, oName = CHARS[oppChar].name;
+  if (nb > nw) { title.textContent = (mode === "pvp" ? pName + "のかち!" : "あなたのかち!") + " 🎉"; sndWin(); }
+  else if (nw > nb) {
+    title.textContent = mode === "pvp" ? oName + "のかち! 🎉" : `ざんねん… ${oName}のかち`;
     mode === "pvp" ? sndWin() : sndLose();
-  } else {
-    title.textContent = "ひきわけ! なかよし✨";
-    sndWin();
-  }
+  } else { title.textContent = "ひきわけ! なかよし✨"; sndWin(); }
   setBanner("おしまい!");
+
+  // XPとレベル
+  const xpSection = document.getElementById("xpSection");
+  const lvMsg = document.getElementById("levelupMsg");
+  lvMsg.style.display = "none";
+  let cleared = false;
+  if (mode === "pvp") {
+    xpSection.style.display = "none";
+  } else {
+    xpSection.style.display = "";
+    let winBonus = 0;
+    if (playerWon) {
+      winBonus = mode === "dungeon" ? 10 + dungeonFloor * 5
+        : { easy: 10, normal: 20, hard: 30 }[mode] || 10;
+    }
+    const earned = gameXP + winBonus;
+    const before = totalXP;
+    totalXP += earned;
+    saveNum("fr_xp", totalXP);
+    document.getElementById("xpGained").textContent =
+      `けいけんち +${earned} (いい手 +${gameXP} / かちボーナス +${winBonus})`;
+    const lvBefore = levelOf(before), lvAfter = levelOf(totalXP);
+    const fill = document.getElementById("xpFill");
+    fill.style.transition = "none";
+    fill.style.width = ((before % XP_PER_LEVEL) / XP_PER_LEVEL * 100) + "%";
+    document.getElementById("xpLabel").textContent =
+      `Lv.${lvAfter}  つぎのレベルまで あと ${XP_PER_LEVEL - (totalXP % XP_PER_LEVEL)} XP`;
+    setTimeout(() => {
+      fill.style.transition = "";
+      fill.style.width = ((totalXP % XP_PER_LEVEL) / XP_PER_LEVEL * 100) + "%";
+      if (lvAfter > lvBefore) {
+        lvMsg.textContent = `🎊 レベルアップ! Lv.${lvAfter} になった!`;
+        lvMsg.style.display = "";
+        sndLevel();
+      }
+    }, 900);
+    updateLevelBadge();
+
+    // ダンジョンのクリア処理
+    if (mode === "dungeon" && playerWon && dungeonFloor === clearedFloor + 1) {
+      clearedFloor = dungeonFloor;
+      saveNum("fr_dungeon", clearedFloor);
+      cleared = true;
+    }
+  }
+
+  // ボタン
+  const btns = document.getElementById("resultButtons");
+  btns.innerHTML = "";
+  const addBtn = (label, cls, fn) => {
+    const b = document.createElement("button");
+    b.textContent = label;
+    if (cls) b.className = cls;
+    b.addEventListener("click", fn);
+    btns.appendChild(b);
+  };
+  if (mode === "dungeon") {
+    if (playerWon && dungeonFloor < FLOORS.length) {
+      addBtn(`⬇ ${dungeonFloor + 1}かいへ すすむ!`, "purple", () => startGame("dungeon", { floor: dungeonFloor + 1 }));
+    }
+    if (playerWon && dungeonFloor === FLOORS.length) {
+      title.textContent = "🏆 ダンジョンぜんクリア! きみは リバーシマスターだ!";
+    }
+    if (!playerWon) addBtn("もういちど ちょうせん!", "", () => startGame("dungeon", { floor: dungeonFloor }));
+    addBtn("ダンジョンマップへ", "secondary", () => { document.getElementById("resultOverlay").classList.add("hidden"); openDungeon(); });
+  } else {
+    addBtn("もういちど!", "", () => startGame(mode));
+  }
+  addBtn("メニューにもどる", "secondary", () => {
+    document.getElementById("resultOverlay").classList.add("hidden");
+    document.getElementById("menuOverlay").classList.remove("hidden");
+  });
+
+  const congrats = cleared ? ` ${dungeonFloor}かい クリア!` : "";
+  showTeacher(playerWon || mode === "pvp"
+    ? `おつかれさま!${congrats} つよくなってるぞ!`
+    : "まけても だいじょうぶ。かどを とることを いしきすると、ぐんと つよくなるよ!");
   setTimeout(() => document.getElementById("resultOverlay").classList.remove("hidden"), 800);
 }
 
-/* ================= ボタン ================= */
+/* ================= ダンジョンマップ ================= */
+function openDungeon() {
+  const list = document.getElementById("floorList");
+  list.innerHTML = "";
+  document.getElementById("dungeonMsg").textContent = clearedFloor >= FLOORS.length
+    ? "ぜんぶクリアした きみは リバーシマスター! すきな かいで あそべるよ。"
+    : `いま ${clearedFloor} かいまで クリア! つぎは ${clearedFloor + 1} かいだ!`;
+  FLOORS.forEach((fl, i) => {
+    const floorNum = i + 1;
+    const row = document.createElement("div");
+    const isCleared = floorNum <= clearedFloor;
+    const isCurrent = floorNum === clearedFloor + 1;
+    const locked = floorNum > clearedFloor + 1;
+    row.className = "floor-row" + (isCleared ? " cleared" : "") + (isCurrent ? " current" : "") + (locked ? " locked" : "");
+    row.innerHTML = `
+      <div class="face">${locked ? faceSvg(fl.char).replace("<svg", '<svg style="filter:brightness(0) opacity(.25)"') : faceSvg(fl.char)}</div>
+      <div class="fl-info">
+        <div class="fl-name">${floorNum}かい ${locked ? "???" : CHARS[fl.char].name}</div>
+        <div class="fl-sub">${locked ? "まえの かいを クリアすると すすめるよ" : fl.sub}</div>
+      </div>
+      <div class="fl-state">${isCleared ? "⭐" : isCurrent ? "▶" : "🔒"}</div>`;
+    if (!locked) row.addEventListener("click", () => startGame("dungeon", { floor: floorNum }));
+    list.appendChild(row);
+  });
+  document.getElementById("menuOverlay").classList.add("hidden");
+  document.getElementById("dungeonOverlay").classList.remove("hidden");
+}
+
+/* ================= メニュー・ボタン ================= */
+function buildCharSelect() {
+  const row = document.getElementById("charRow");
+  row.innerHTML = "";
+  for (const key of PLAYABLE) {
+    const div = document.createElement("div");
+    div.className = "char-opt" + (key === playerChar ? " sel" : "");
+    div.innerHTML = `<div class="face">${faceSvg(key)}</div><span class="cname">${CHARS[key].name}</span>`;
+    div.addEventListener("click", () => {
+      playerChar = key;
+      try { localStorage.setItem("fr_char", key); } catch (e) {}
+      buildCharSelect();
+    });
+    row.appendChild(div);
+  }
+}
+
 document.getElementById("btnHint").addEventListener("click", () => { if (!busy) showHints(); });
 document.getElementById("btnUndo").addEventListener("click", () => {
   if (busy || !history.length) return;
-  // CPU戦では「自分の手番の直前」まで戻す
   let snap = history.pop();
   if (mode !== "pvp") {
     while (snap && snap.turn !== B && history.length) snap = history.pop();
@@ -660,14 +1102,16 @@ document.getElementById("btnUndo").addEventListener("click", () => {
   board = snap.board;
   turn = snap.turn;
   render();
-  setBanner(turn === B ? "ミミのばん!" : "クゥのばん!");
+  setBanner(sideName(turn) + "のばん!");
+  showTeacher("まったなしOK! こんどは どこに おくか、じっくり かんがえてみよう。");
 });
 document.getElementById("btnMenu").addEventListener("click", () => {
+  buildCharSelect();
   document.getElementById("menuOverlay").classList.remove("hidden");
 });
-document.getElementById("btnRetry").addEventListener("click", () => startGame(mode));
-document.getElementById("btnBackMenu").addEventListener("click", () => {
-  document.getElementById("resultOverlay").classList.add("hidden");
+document.getElementById("btnDungeon").addEventListener("click", openDungeon);
+document.getElementById("btnDungeonBack").addEventListener("click", () => {
+  document.getElementById("dungeonOverlay").classList.add("hidden");
   document.getElementById("menuOverlay").classList.remove("hidden");
 });
 document.querySelectorAll("#menuOverlay [data-mode]").forEach(btn => {
@@ -675,26 +1119,24 @@ document.querySelectorAll("#menuOverlay [data-mode]").forEach(btn => {
 });
 
 /* ================= オフライン対応（Service Worker） ================= */
-// file:// で直接開いたときは Service Worker が使えないのでスキップする
 if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("sw.js").catch(() => {
-      /* 登録に失敗してもゲーム自体はそのまま遊べる */
-    });
+    navigator.serviceWorker.register("sw.js").catch(() => {});
   });
 }
 
 /* ================= 初期化 ================= */
-for (const [id, fn] of [["faceB", catFace], ["faceW", bearFace], ["menuFaceB", catFace], ["menuFaceW", bearFace], ["resultFaceB", catFace], ["resultFaceW", bearFace]]) {
-  document.getElementById(id).innerHTML = fn("100%");
-}
-document.getElementById("menuOverlay").classList.remove("hidden");
+document.getElementById("teacherFace").innerHTML = faceSvg("hoo");
+buildCharSelect();
+updateLevelBadge();
 buildBoard();
 board = newBoard();
 turn = B;
 mode = "easy";
 history = [];
 busy = true; // メニューが開いている間は操作不可
+document.getElementById("faceB").innerHTML = faceSvg(playerChar);
+document.getElementById("faceW").innerHTML = faceSvg(oppChar);
 render();
 </script>
 </body>
