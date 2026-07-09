@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>関東マンション割安マップ</title>
+<link rel="stylesheet" href="/static/vendor/leaflet.css">
+<link rel="stylesheet" href="/static/vendor/MarkerCluster.css">
+<link rel="stylesheet" href="/static/vendor/MarkerCluster.Default.css">
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div id="sidebar">
+  <h1>関東マンション<br>割安マップ</h1>
+  <div class="seg" id="typeToggle">
+    <button data-type="sale" class="active">購入</button>
+    <button data-type="rent">賃貸</button>
+  </div>
+
+  <details open>
+    <summary>フィルタ</summary>
+    <div class="filters">
+      <label>価格 <span id="priceUnit">(万円)</span>
+        <div class="range">
+          <input id="priceMin" type="number" placeholder="下限">〜
+          <input id="priceMax" type="number" placeholder="上限">
+        </div>
+      </label>
+      <label>広さ (㎡)
+        <div class="range">
+          <input id="areaMin" type="number" placeholder="下限">〜
+          <input id="areaMax" type="number" placeholder="上限">
+        </div>
+      </label>
+      <label>築年数（以内）<input id="ageMax" type="number" placeholder="例: 20"></label>
+      <label>駅徒歩（分以内）<input id="walkMax" type="number" placeholder="例: 10"></label>
+      <label>市区町村
+        <select id="muni"><option value="">すべて</option></select>
+      </label>
+      <label>スコア下限: <span id="scoreMinVal">0</span>
+        <input id="scoreMin" type="range" min="0" max="100" value="0">
+      </label>
+      <label class="check">
+        <input id="excludeOutliers" type="checkbox" checked>
+        外れ値（要注意物件）を除外
+      </label>
+      <label class="check">
+        <input id="heatLayer" type="checkbox">
+        エリア相場ヒートマップを表示
+      </label>
+    </div>
+  </details>
+
+  <div class="legend">
+    <b>割安スコア</b>（高いほど割安）
+    <div><i style="background:#1a9850"></i>70+ かなり割安</div>
+    <div><i style="background:#91cf60"></i>60–70 割安</div>
+    <div><i style="background:#fee08b"></i>45–60 相場並み</div>
+    <div><i style="background:#fc8d59"></i>30–45 やや割高</div>
+    <div><i style="background:#d73027"></i>〜30 割高</div>
+    <div><i class="outline"></i>グレー枠 = 外れ値フラグ</div>
+  </div>
+
+  <details open>
+    <summary>割安ランキング</summary>
+    <ol id="ranking"></ol>
+  </details>
+
+  <div id="meta" class="meta"></div>
+</div>
+<div id="map"></div>
+
+<script src="/static/vendor/leaflet.js"></script>
+<script src="/static/vendor/leaflet.markercluster.js"></script>
+<script src="/static/app.js"></script>
+</body>
+</html>
