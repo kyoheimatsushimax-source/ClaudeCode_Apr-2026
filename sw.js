@@ -2,7 +2,7 @@
  * ゲームに必要なファイルをすべてキャッシュして、オフラインでも遊べるようにする。
  * index.html などを更新したときは CACHE_VERSION を上げること。
  */
-const CACHE_VERSION = "futago-reversi-v3";
+const CACHE_VERSION = "futago-reversi-v4";
 const ASSETS = [
   "./",
   "./index.html",
