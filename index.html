@@ -385,6 +385,19 @@
   </div>
 </div>
 
+<!-- 2Pのキャラえらび（ふたりであそぶ） -->
+<div class="overlay hidden" id="p2Overlay">
+  <div class="panel">
+    <h2>ふたりであそぶ</h2>
+    <h3>2Pの キャラクターを えらんでね</h3>
+    <div class="char-row" id="charRow2"></div>
+    <p style="margin-top:10px; font-size:11px; color:#a07850;">(1Pと おなじ キャラクターは えらべないよ)</p>
+    <div class="choice-group">
+      <button class="secondary" id="btnP2Back">メニューにもどる</button>
+    </div>
+  </div>
+</div>
+
 <!-- ダンジョンマップ -->
 <div class="overlay hidden" id="dungeonOverlay">
   <div class="panel">
@@ -429,10 +442,9 @@ const CHARS = {
   pyon: { name: "ピョン", species: "うさぎ",   body: "#c9a7f5", edge: "#a47ae0", eye: "#4a3a63" },
   kero: { name: "ケロ",   species: "かえる",   body: "#8ed36f", edge: "#65b249", eye: "#2e5c22" },
   pen:  { name: "ペン",   species: "ぺんぎん", body: "#9db8d9", edge: "#6f8fbb", eye: "#2f3f57" },
-  kon:  { name: "コン",   species: "きつね",   body: "#ffb26b", edge: "#e88f3f", eye: "#5c3a1e" },
   hoo:  { name: "ホーせんせい", species: "ふくろう", body: "#c9a06e", edge: "#a67c4b", eye: "#3f2f1e" },
 };
-const PLAYABLE = ["mimi", "kuu", "pyon", "kero", "pen", "kon"];
+const PLAYABLE = ["mimi", "kuu", "pyon", "kero", "pen"];
 
 function charSvgInner(key) {
   const c = CHARS[key];
@@ -468,14 +480,6 @@ function charSvgInner(key) {
     case "pen": // ぺんぎん: 白いおなか顔 + くちばし
       extra = `<ellipse cx="50" cy="60" rx="22" ry="18" fill="#fff" opacity=".9"/>
                <polygon points="44,52 56,52 50,61" fill="#f2a516" stroke="#d18a0c" stroke-width="2" stroke-linejoin="round"/>`;
-      break;
-    case "kon": // きつね: とがり耳 + 白いマズル
-      ears = `<polygon points="24,30 16,4 42,18" fill="${body}" stroke="${edge}" stroke-width="3" stroke-linejoin="round"/>
-              <polygon points="76,30 84,4 58,18" fill="${body}" stroke="${edge}" stroke-width="3" stroke-linejoin="round"/>
-              <polygon points="25,26 21,12 34,19" fill="#fff" opacity=".6"/>
-              <polygon points="75,26 79,12 66,19" fill="#fff" opacity=".6"/>`;
-      extra = `<ellipse cx="50" cy="63" rx="13" ry="9" fill="#fff" opacity=".9"/>
-               <ellipse cx="50" cy="58" rx="4" ry="3.2" fill="${eye}"/>`;
       break;
     case "hoo": // ふくろう: 羽かざり + めがねっぽい目 + くちばし
       ears = `<polygon points="28,22 24,6 40,16" fill="${body}" stroke="${edge}" stroke-width="3" stroke-linejoin="round"/>
@@ -657,11 +661,11 @@ const FLOORS = [
   { char: "pyon", ai: { type: "random" },              sub: "うさぎの ピョン" },
   { char: "kero", ai: { type: "random2" },             sub: "かえるの ケロ" },
   { char: "kuu",  ai: { type: "greedy" },              sub: "くまの クゥ" },
-  { char: "kon",  ai: { type: "greedy+" },             sub: "きつねの コン" },
-  { char: "pen",  ai: { type: "minimax", depth: 1 },   sub: "ぺんぎんの ペン" },
+  { char: "pen",  ai: { type: "greedy+" },             sub: "ぺんぎんの ペン" },
+  { char: "mimi", ai: { type: "minimax", depth: 1 },   sub: "ねこの ミミ" },
   { char: "pyon", ai: { type: "minimax", depth: 2 },   sub: "きたえた ピョン" },
   { char: "kuu",  ai: { type: "minimax", depth: 2 },   sub: "ほんきの クゥ" },
-  { char: "kon",  ai: { type: "minimax", depth: 3 },   sub: "ずるがしこい コン" },
+  { char: "kero", ai: { type: "minimax", depth: 3 },   sub: "しんかした ケロ" },
   { char: "pen",  ai: { type: "minimax", depth: 3 },   sub: "こおりの ペン" },
   { char: "hoo",  ai: { type: "minimax", depth: 4 },   sub: "さいごのしれん ホーせんせい" },
 ];
@@ -857,6 +861,13 @@ function startGame(m, opts = {}) {
       ? PLAYABLE[(PLAYABLE.indexOf(fl.char) + 1) % PLAYABLE.length]
       : fl.char;
     aiConfig = fl.ai;
+  } else if (m === "pvp") {
+    dungeonFloor = 0;
+    const others = PLAYABLE.filter(k => k !== playerChar);
+    // 「もういちど!」のときは まえの2Pキャラを そのまま使う
+    const keep = PLAYABLE.includes(oppChar) && oppChar !== playerChar ? oppChar : others[0];
+    oppChar = opts.p2 && opts.p2 !== playerChar ? opts.p2 : keep;
+    aiConfig = null;
   } else {
     dungeonFloor = 0;
     const others = PLAYABLE.filter(k => k !== playerChar);
@@ -875,6 +886,7 @@ function startGame(m, opts = {}) {
   document.getElementById("nameW").textContent = CHARS[oppChar].name +
     (m === "pvp" ? "（2P）" : m === "dungeon" ? `（${dungeonFloor}かい）` : "（CPU）");
   document.getElementById("menuOverlay").classList.add("hidden");
+  document.getElementById("p2Overlay").classList.add("hidden");
   document.getElementById("dungeonOverlay").classList.add("hidden");
   document.getElementById("resultOverlay").classList.add("hidden");
   render();
@@ -1109,13 +1121,33 @@ document.getElementById("btnMenu").addEventListener("click", () => {
   buildCharSelect();
   document.getElementById("menuOverlay").classList.remove("hidden");
 });
+function openP2Select() {
+  const row = document.getElementById("charRow2");
+  row.innerHTML = "";
+  for (const key of PLAYABLE.filter(k => k !== playerChar)) {
+    const div = document.createElement("div");
+    div.className = "char-opt";
+    div.innerHTML = `<div class="face">${faceSvg(key)}</div><span class="cname">${CHARS[key].name}</span>`;
+    div.addEventListener("click", () => startGame("pvp", { p2: key }));
+    row.appendChild(div);
+  }
+  document.getElementById("menuOverlay").classList.add("hidden");
+  document.getElementById("p2Overlay").classList.remove("hidden");
+}
+document.getElementById("btnP2Back").addEventListener("click", () => {
+  document.getElementById("p2Overlay").classList.add("hidden");
+  document.getElementById("menuOverlay").classList.remove("hidden");
+});
 document.getElementById("btnDungeon").addEventListener("click", openDungeon);
 document.getElementById("btnDungeonBack").addEventListener("click", () => {
   document.getElementById("dungeonOverlay").classList.add("hidden");
   document.getElementById("menuOverlay").classList.remove("hidden");
 });
 document.querySelectorAll("#menuOverlay [data-mode]").forEach(btn => {
-  btn.addEventListener("click", () => startGame(btn.dataset.mode));
+  btn.addEventListener("click", () => {
+    if (btn.dataset.mode === "pvp") openP2Select();
+    else startGame(btn.dataset.mode);
+  });
 });
 
 /* ================= オフライン対応（Service Worker） ================= */
