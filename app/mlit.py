@@ -36,11 +36,11 @@ class ReinfolibClient:
         max_retries: int = 3,
         timeout: float = 60.0,
     ):
-        self.api_key = api_key or config.REINFOLIB_API_KEY
+        self.api_key = api_key or config.get_reinfolib_api_key()
         if not self.api_key:
             raise ValueError(
-                "REINFOLIB_API_KEY が未設定です。README の手順で API キーを取得し、"
-                "環境変数 REINFOLIB_API_KEY に設定してください。"
+                "API キーが未設定です。README の手順でキーを取得し、環境変数 "
+                "REINFOLIB_API_KEY か、リポジトリ直下の apikey.txt に設定してください。"
             )
         self.base_url = base_url.rstrip("/")
         self.min_interval = min_interval

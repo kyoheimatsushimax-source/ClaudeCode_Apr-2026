@@ -13,6 +13,7 @@ CSV 列（ヘッダ必須）:
 from __future__ import annotations
 
 import csv
+import io
 import json
 from pathlib import Path
 from typing import Iterator
@@ -37,15 +38,23 @@ class CsvListingProvider(ListingProvider):
         self.path = Path(path)
         self.row_errors: list[str] = []
 
+    def _read_text(self) -> str:
+        """UTF-8 を優先し、Excel 保存等の Shift_JIS(CP932) にもフォールバック。"""
+        raw = self.path.read_bytes()
+        try:
+            return raw.decode("utf-8-sig")
+        except UnicodeDecodeError:
+            return raw.decode("cp932")
+
     def _rows(self) -> Iterator[dict]:
+        text = self._read_text()
         if self.path.suffix.lower() == ".json":
-            data = json.loads(self.path.read_text(encoding="utf-8"))
+            data = json.loads(text)
             if not isinstance(data, list):
                 raise ValueError("JSON はオブジェクトの配列である必要があります")
             yield from data
         else:
-            with self.path.open(encoding="utf-8-sig", newline="") as f:
-                yield from csv.DictReader(f)
+            yield from csv.DictReader(io.StringIO(text))
 
     def fetch(self) -> Iterator[Listing]:
         self.row_errors = []

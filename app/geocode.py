@@ -56,7 +56,7 @@ def geocode(conn, query: str) -> tuple[float, float] | None:
     return lat, lng
 
 
-def fill_area_points(conn, interval_sec: float = 1.0, log=print) -> int:
+def fill_area_points(conn, interval_sec: float = 0.5, log=print) -> int:
     """成約統計に現れる地区のうち代表点が無いものをジオコーディングで補完。
 
     国土地理院APIへの連続リクエストになるため interval_sec 秒空ける。

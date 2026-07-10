@@ -63,6 +63,17 @@ class TestCsv:
         assert [i.source_id for i in items] == ["A4"]
         assert len(provider.row_errors) == 3
 
+    def test_cp932_excel_saved_csv(self, tmp_path):
+        # Excel の「CSV (カンマ区切り)」保存は Shift_JIS(CP932) になる
+        p = tmp_path / "excel.csv"
+        p.write_bytes(
+            ("source_id,listing_type,price,area_sqm,municipality,district\n"
+             "A1,売買,50000000,60,江東区,豊洲\n").encode("cp932")
+        )
+        items = list(CsvListingProvider(p).fetch())
+        assert items[0].district == "豊洲"
+        assert items[0].listing_type == "sale"
+
     def test_bom_handled(self, tmp_path):
         p = tmp_path / "bom.csv"
         p.write_text(

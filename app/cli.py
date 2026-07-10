@@ -34,6 +34,8 @@ def cmd_init_db(_args) -> None:
 
 
 def cmd_fetch(args) -> None:
+    import httpx
+
     from .mlit import ReinfolibClient, ingest_transactions
 
     conn = get_conn()
@@ -43,8 +45,17 @@ def cmd_fetch(args) -> None:
     y2, q2 = args.to
     prefs = [args.pref] if args.pref else None
     print(f"不動産情報ライブラリから {y1}Q{q1}〜{y2}Q{q2} を取得します…")
-    total = ingest_transactions(conn, client, y1, q1, y2, q2, pref_codes=prefs)
-    client.close()
+    try:
+        total = ingest_transactions(conn, client, y1, q1, y2, q2,
+                                    pref_codes=prefs)
+    except httpx.HTTPStatusError as e:
+        if e.response.status_code in (401, 403):
+            print("エラー: APIキーが認証されませんでした。キーが正しいか、"
+                  "利用申請が承認済みか確認してください。", file=sys.stderr)
+            sys.exit(1)
+        raise
+    finally:
+        client.close()
     print(f"マンション成約・取引データ 新規 {total} 件を保存しました")
 
 

@@ -11,8 +11,22 @@ DB_PATH = Path(os.environ.get("WARYASU_DB_PATH", str(DATA_DIR / "app.db")))
 
 # 国交省 不動産情報ライブラリ API
 # https://www.reinfolib.mlit.go.jp/help/apiManual/ で利用申請してキーを取得する
-REINFOLIB_API_KEY = os.environ.get("REINFOLIB_API_KEY", "")
 REINFOLIB_BASE_URL = "https://www.reinfolib.mlit.go.jp/ex-api/external"
+
+
+def get_reinfolib_api_key() -> str:
+    """APIキーを環境変数 → リポジトリ直下の apikey.txt の順で探す。"""
+    key = os.environ.get("REINFOLIB_API_KEY", "")
+    if key.strip():
+        return key.strip()
+    key_file = BASE_DIR / "apikey.txt"
+    if key_file.exists():
+        return key_file.read_text(encoding="utf-8-sig").strip()
+    return ""
+
+
+# 後方互換（既存コードは get_reinfolib_api_key() を使うこと）
+REINFOLIB_API_KEY = get_reinfolib_api_key()
 
 # 1都3県の都道府県コード
 KANTO_PREFS = {

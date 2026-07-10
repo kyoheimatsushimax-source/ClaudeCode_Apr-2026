@@ -1,0 +1,3 @@
+﻿source_id,listing_type,title,price,area_sqm,building_year,address,prefecture,municipality,district,station,walk_min,url
+例1,sale,（例）この行は消して書き換えてください,58000000,62.5,2010,東京都江東区豊洲4丁目,東京都,江東区,豊洲,豊洲,7,https://suumo.jp/xxxx
+例2,rent,（例）賃貸は listing_type を rent にし price は月額,185000,45.0,2015,東京都世田谷区三軒茶屋1丁目,東京都,世田谷区,三軒茶屋,三軒茶屋,5,
