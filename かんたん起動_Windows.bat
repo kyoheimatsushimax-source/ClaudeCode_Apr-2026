@@ -1,32 +1,44 @@
 @echo off
-rem é–¢æ±ãƒãƒ³ã‚·ãƒ§ãƒ³å‰²å®‰ãƒãƒƒãƒ— ã‹ã‚“ãŸã‚“èµ·å‹•ï¼ˆWindowsç”¨ï¼‰
-rem ã“ã®ãƒ•ã‚¡ã‚¤ãƒ«ã‚’ãƒ€ãƒ–ãƒ«ã‚¯ãƒªãƒƒã‚¯ã™ã‚‹ã ã‘ã§ã€ã‚»ãƒƒãƒˆã‚¢ãƒƒãƒ—ã‹ã‚‰èµ·å‹•ã¾ã§è‡ªå‹•ã§è¡Œã„ã¾ã™ã€‚
-chcp 65001 >nul
+rem ============================================================
+rem  ŠÖ“Œƒ}ƒ“ƒVƒ‡ƒ“Š„ˆÀƒ}ƒbƒv ‚©‚ñ‚½‚ñ‹N“®iWindows—pj
+rem  ‚±‚Ìƒtƒ@ƒCƒ‹‚ğƒ_ƒuƒ‹ƒNƒŠƒbƒN‚·‚é‚¾‚¯‚Å‹N“®‚µ‚Ü‚·B
+rem  ¦‚±‚Ìƒtƒ@ƒCƒ‹‚Í Shift_JIS(CP932)ECRLF ‚Å•Û‘¶‚·‚é‚±‚Æ
+rem ============================================================
+setlocal
 cd /d "%~dp0"
 
-where python >nul 2>nul
-if errorlevel 1 (
-    echo Python ãŒã‚¤ãƒ³ã‚¹ãƒˆãƒ¼ãƒ«ã•ã‚Œã¦ã„ã¾ã›ã‚“ã€‚
-    echo https://www.python.org/downloads/ ã‹ã‚‰ã‚¤ãƒ³ã‚¹ãƒˆãƒ¼ãƒ«ã—ã¦ãã ã•ã„ã€‚
-    echo â€»ã‚¤ãƒ³ã‚¹ãƒˆãƒ¼ãƒ«ç”»é¢ã§ã€ŒAdd python.exe to PATHã€ã«å¿…ãšãƒã‚§ãƒƒã‚¯ã‚’å…¥ã‚Œã¦ãã ã•ã„ã€‚
+rem --- Python ‚ğ’T‚·ipy ƒ‰ƒ“ƒ`ƒƒ[—DæBStore ‚Ìƒ_ƒ~[‚ÍœŠOj ---
+set "PYCMD="
+where py >nul 2>nul
+if not errorlevel 1 set "PYCMD=py -3"
+if not defined PYCMD (
+    python --version >nul 2>nul
+    if not errorlevel 1 set "PYCMD=python"
+)
+if not defined PYCMD (
+    echo Python ‚ªƒCƒ“ƒXƒg[ƒ‹‚³‚ê‚Ä‚¢‚Ü‚¹‚ñB
+    echo ƒ_ƒEƒ“ƒ[ƒhƒy[ƒW‚ğŠJ‚«‚Ü‚·BƒCƒ“ƒXƒg[ƒ‹‚µ‚Ä‚©‚çA
+    echo ‚à‚¤ˆê“x‚±‚Ìƒtƒ@ƒCƒ‹‚ğƒ_ƒuƒ‹ƒNƒŠƒbƒN‚µ‚Ä‚­‚¾‚³‚¢B
+    start https://www.python.org/downloads/
     pause
     exit /b 1
 )
 
+rem --- ‰‰ñƒZƒbƒgƒAƒbƒv ---
 if not exist .venv (
-    echo åˆå›ã‚»ãƒƒãƒˆã‚¢ãƒƒãƒ—ä¸­ã§ã™ã€‚1ã€œ2åˆ†ãŠå¾…ã¡ãã ã•ã„...
-    python -m venv .venv
+    echo ‰‰ñƒZƒbƒgƒAƒbƒv’†‚Å‚·B1`2•ª‚Ù‚Ç‚¨‘Ò‚¿‚­‚¾‚³‚¢...
+    %PYCMD% -m venv .venv
 )
 call .venv\Scripts\activate.bat
 pip install -r requirements.txt -q
 
 if not exist data\app.db (
-    echo ãƒ‡ãƒ¢ãƒ‡ãƒ¼ã‚¿ã‚’æº–å‚™ã—ã¦ã„ã¾ã™...
+    echo ƒfƒ‚ƒf[ƒ^‚ğ€”õ‚µ‚Ä‚¢‚Ü‚·...
     python -m app.cli demo
 )
 
 echo.
-echo ãƒ–ãƒ©ã‚¦ã‚¶ãŒè‡ªå‹•ã§é–‹ãã¾ã™ã€‚çµ‚äº†ã™ã‚‹ã¨ãã¯ã“ã®é»’ã„ç”»é¢ã‚’é–‰ã˜ã¦ãã ã•ã„ã€‚
+echo ƒuƒ‰ƒEƒU‚ª©“®‚ÅŠJ‚«‚Ü‚·BI—¹‚·‚é‚Æ‚«‚Í‚±‚Ì•‚¢‰æ–Ê‚ğ•Â‚¶‚Ä‚­‚¾‚³‚¢B
 start "" http://127.0.0.1:8000
 python -m app.cli serve
 pause
